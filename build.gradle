@@ -22,7 +22,7 @@ loom {
 	splitEnvironmentSourceSets()
 
 	mods {
-		"spa-sound" {
+		"spa-rpg" {
 			sourceSet sourceSets.main
 			sourceSet sourceSets.client
 		}

@@ -1,8 +1,8 @@
 {
 	"schemaVersion": 1,
-	"id": "spa-sound",
+	"id": "spa-rpg",
 	"version": "${version}",
-	"name": "spa-sound",
+	"name": "spa-rpg",
 	"description": "This is an example description! Tell everyone what your mod is about!",
 	"authors": [
 		"Me!"
@@ -12,7 +12,7 @@
 		"sources": "https://github.com/FabricMC/fabric-example-mod"
 	},
 	"license": "CC0-1.0",
-	"icon": "assets/spa-sound/icon.png",
+	"icon": "assets/spa-rpg/icon.png",
 	"environment": "*",
 	"entrypoints": {
 		"main": [
@@ -25,9 +25,9 @@
 		]
 	},
 	"mixins": [
-		"spa-sound.mixins.json",
+		"spa-rpg.mixins.json",
 		{
-			"config": "spa-sound.client.mixins.json",
+			"config": "spa-rpg.client.mixins.json",
 			"environment": "client"
 		},
 		"progression.mixins.json",
