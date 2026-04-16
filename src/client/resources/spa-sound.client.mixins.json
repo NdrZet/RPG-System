@@ -1,0 +1,12 @@
+{
+	"required": true,
+	"package": "com.spa.sound.mixin.client",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"ExampleClientMixin",
+		"MusicContextMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

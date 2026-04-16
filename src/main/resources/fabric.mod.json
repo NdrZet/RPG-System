@@ -1,0 +1,45 @@
+{
+	"schemaVersion": 1,
+	"id": "spa-sound",
+	"version": "${version}",
+	"name": "spa-sound",
+	"description": "This is an example description! Tell everyone what your mod is about!",
+	"authors": [
+		"Me!"
+	],
+	"contact": {
+		"homepage": "https://fabricmc.net/",
+		"sources": "https://github.com/FabricMC/fabric-example-mod"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/spa-sound/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.spa.sound.Spasound",
+			"ru.custom.progression.ProgressionMod"
+		],
+		"client": [
+			"com.spa.sound.SpasoundClient",
+			"ru.custom.progression.ProgressionModClient"
+		]
+	},
+	"mixins": [
+		"spa-sound.mixins.json",
+		{
+			"config": "spa-sound.client.mixins.json",
+			"environment": "client"
+		},
+		"progression.mixins.json",
+		{
+			"config": "progression.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.18.4",
+		"minecraft": "~1.21.11",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}
