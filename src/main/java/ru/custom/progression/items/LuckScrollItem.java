@@ -26,8 +26,8 @@ public class LuckScrollItem extends Item {
     private static final long COOLDOWN_MS = 90_000L;
     private static final Map<UUID, Long> lastUsed = new HashMap<>();
 
-    public LuckScrollItem() {
-        super(new Properties().stacksTo(1));
+    public LuckScrollItem(Properties props) {
+        super(props);
     }
 
     @Override

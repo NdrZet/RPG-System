@@ -2,6 +2,7 @@ package ru.custom.progression;
 
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.entity.event.v1.ServerEntityCombatEvents;
+import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.ChatFormatting;
@@ -32,6 +33,7 @@ public class ProgressionMod implements ModInitializer {
         NetworkHandler.register();
         AdminCommands.register();
         registerJoinDisconnect();
+        registerRespawnEffects();
         registerMobKillXp();
         registerPriestRegen();
 
@@ -57,6 +59,21 @@ public class ProgressionMod implements ModInitializer {
             ServerPlayer player = handler.player;
             DataManager.savePlayer(player.getUUID());
             DataManager.unloadPlayer(player.getUUID());
+        });
+    }
+
+    // ── Повторное применение эффектов после респауна ─────────────────────────
+
+    private static void registerRespawnEffects() {
+        // AFTER_RESPAWN срабатывает в серверном потоке — вызываем напрямую
+        ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
+            PlayerStats stats = DataManager.getPlayer(newPlayer.getUUID());
+            if (stats == null) return;
+            // Атрибуты сбрасываются при смерти — восстанавливаем сразу
+            StatEffects.apply(newPlayer, stats);
+            // Устанавливаем полное HP с учётом нового максимума (VIT-бонус)
+            newPlayer.setHealth(newPlayer.getMaxHealth());
+            NetworkHandler.sendStatsToPlayer(newPlayer, stats);
         });
     }
 

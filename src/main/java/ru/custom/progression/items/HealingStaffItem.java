@@ -23,8 +23,8 @@ public class HealingStaffItem extends Item {
     private static final long COOLDOWN_MS = 30_000L;
     private static final Map<UUID, Long> lastUsed = new HashMap<>();
 
-    public HealingStaffItem() {
-        super(new Properties().stacksTo(1));
+    public HealingStaffItem(Properties props) {
+        super(props);
     }
 
     @Override

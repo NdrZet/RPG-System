@@ -26,8 +26,8 @@ public class TrapItem extends Item {
     private static final long COOLDOWN_MS = 45_000L;
     private static final Map<UUID, Long> lastUsed = new HashMap<>();
 
-    public TrapItem() {
-        super(new Properties().stacksTo(1));
+    public TrapItem(Properties props) {
+        super(props);
     }
 
     @Override

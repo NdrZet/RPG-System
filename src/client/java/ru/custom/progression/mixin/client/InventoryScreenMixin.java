@@ -57,24 +57,25 @@ public abstract class InventoryScreenMixin extends AbstractContainerScreen<Inven
         // Рендерабл фона/текста добавляем ПЕРВЫМ — чтобы рисовался ДО кнопок
         this.addRenderableOnly(this::drawPanel);
 
+        // +2px вниз — центруем кнопку (10px) по тексту (8px) на той же строке
         btnStr = Button.builder(Component.literal("+"),
                 b -> ClientNetworkHandler.sendStatUpgrade("strength"))
-                .bounds(btnX, py + 53, 10, 10).build();
+                .bounds(btnX, py + 55, 10, 10).build();
         btnStr.active = hp;
 
         btnAgi = Button.builder(Component.literal("+"),
                 b -> ClientNetworkHandler.sendStatUpgrade("agility"))
-                .bounds(btnX, py + 63, 10, 10).build();
+                .bounds(btnX, py + 65, 10, 10).build();
         btnAgi.active = hp;
 
         btnVit = Button.builder(Component.literal("+"),
                 b -> ClientNetworkHandler.sendStatUpgrade("vitality"))
-                .bounds(btnX, py + 73, 10, 10).build();
+                .bounds(btnX, py + 75, 10, 10).build();
         btnVit.active = hp;
 
         btnInt = Button.builder(Component.literal("+"),
                 b -> ClientNetworkHandler.sendStatUpgrade("intelligence"))
-                .bounds(btnX, py + 83, 10, 10).build();
+                .bounds(btnX, py + 85, 10, 10).build();
         btnInt.active = hp;
 
         this.addRenderableWidget(btnStr);
@@ -146,10 +147,22 @@ public abstract class InventoryScreenMixin extends AbstractContainerScreen<Inven
 
         gfx.fill(px + 2, py + 52, pr - 2, py + 53, 0xFF444444); // разделитель
 
-        gfx.drawString(this.font, "Сила: "         + stats.getStrength(),     tx, py + 56, 0xFFFF6347, false);
-        gfx.drawString(this.font, "Ловкость: "     + stats.getAgility(),      tx, py + 66, 0xFF90EE90, false);
-        gfx.drawString(this.font, "Выносливость: " + stats.getVitality(),     tx, py + 76, 0xFFFF69B4, false);
-        gfx.drawString(this.font, "Интеллект: "    + stats.getIntelligence(), tx, py + 86, 0xFF87CEEB, false);
+        // Название стата — слева, значение — прижато к правому краю кнопки
+        int btnR = px + 128; // px + btnXOffset(118) + btnWidth(10)
+        drawStatRow(gfx, "Сила",         stats.getStrength(),     tx, py + 56, 0xFFFF6347, btnR);
+        drawStatRow(gfx, "Ловкость",     stats.getAgility(),      tx, py + 66, 0xFF90EE90, btnR);
+        drawStatRow(gfx, "Выносливость", stats.getVitality(),     tx, py + 76, 0xFFFF69B4, btnR);
+        drawStatRow(gfx, "Интеллект",    stats.getIntelligence(), tx, py + 86, 0xFF87CEEB, btnR);
+    }
+
+    /** Рисует строку стата: название слева, значение прижато к кнопке справа. */
+    @Unique
+    private void drawStatRow(GuiGraphics gfx, String name, int value,
+                             int tx, int ty, int nameColor, int btnR) {
+        gfx.drawString(this.font, name, tx, ty, nameColor, false);
+        String val = String.valueOf(value);
+        // Значение рисуем вплотную перед кнопкой (4px зазор)
+        gfx.drawString(this.font, val, btnR - 4 - this.font.width(val), ty, 0xFFFFFFFF, false);
     }
 
     @Unique

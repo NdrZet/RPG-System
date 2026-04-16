@@ -76,9 +76,19 @@ public class ClassSelectionScreen extends Screen {
         ).bounds(cx + 40, startY + gap * 4, 80, btnH).build());
     }
 
+    /**
+     * Переопределяем renderBackground чтобы не вызывать blur-эффект повторно.
+     * Blur уже применён инвентарём; второй вызов в тот же кадр бросает
+     * IllegalStateException ("Can only blur once per frame") в MC 1.21.11.
+     */
+    @Override
+    public void renderBackground(GuiGraphics gfx, int mouseX, int mouseY, float partialTick) {
+        gfx.fill(0, 0, this.width, this.height, 0xAA000000);
+    }
+
     @Override
     public void render(GuiGraphics gfx, int mouseX, int mouseY, float delta) {
-        // Затемнение фона
+        // Затемнение фона (через переопределённый renderBackground — без блюра)
         this.renderBackground(gfx, mouseX, mouseY, delta);
 
         int cx = (this.width  - DIALOG_W) / 2;

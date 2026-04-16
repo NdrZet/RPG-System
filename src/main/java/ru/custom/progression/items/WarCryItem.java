@@ -25,8 +25,8 @@ public class WarCryItem extends Item {
     private static final long COOLDOWN_MS = 60_000L;
     private static final Map<UUID, Long> lastUsed = new HashMap<>();
 
-    public WarCryItem() {
-        super(new Properties().stacksTo(1));
+    public WarCryItem(Properties props) {
+        super(props);
     }
 
     @Override
