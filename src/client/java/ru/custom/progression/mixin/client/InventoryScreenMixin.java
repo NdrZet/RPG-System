@@ -126,6 +126,19 @@ public abstract class InventoryScreenMixin extends AbstractContainerScreen<Inven
         gfx.drawString(this.font, "Опыт: " + stats.getExperience() + " / " + xpMax,
                        tx, py + 22, xpColor, false);
 
+        // Прогресс-бар XP (3px высотой, между строками Опыт и Ранг)
+        int barX1  = px + 2;
+        int barX2  = pr - 2;
+        int barW   = barX2 - barX1;
+        int filled = (int)((long) barW * Math.min(stats.getExperience(), xpMax) / xpMax);
+        gfx.fill(barX1,          py + 29, barX2,          py + 32, 0xFF333333);           // фон
+        if (filled > 0) {
+            int fillColor = stats.getExperience() >= xpMax * 3 / 4 ? 0xFF00CC00 : 0xFF227722;
+            gfx.fill(barX1,      py + 29, barX1 + filled, py + 32, fillColor);            // заполнение
+        }
+        gfx.fill(barX1,          py + 29, barX2,          py + 30, 0xFF555555);           // рамка верх
+        gfx.fill(barX1,          py + 31, barX2,          py + 32, 0xFF555555);           // рамка низ
+
         gfx.drawString(this.font, "Ранг: "    + stats.getRank(),        tx, py + 32, 0xFFADD8E6, false);
 
         int spColor = stats.getSkillPoints() > 0 ? 0xFF00FF00 : 0xFF888888;

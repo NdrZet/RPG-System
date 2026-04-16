@@ -2,8 +2,9 @@ package ru.custom.progression.items;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResultHolder;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -27,28 +28,26 @@ public class HealingStaffItem extends Item {
     }
 
     @Override
-    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
-        ItemStack stack = player.getItemInHand(hand);
-        if (level.isClientSide) return InteractionResultHolder.success(stack);
+    public InteractionResult use(Level level, Player player, InteractionHand hand) {
+        if (!(level instanceof ServerLevel)) return InteractionResult.PASS;
 
         long now = System.currentTimeMillis();
-        long last = lastUsed.getOrDefault(player.getUUID(), 0L);
-        long elapsed = now - last;
+        long elapsed = now - lastUsed.getOrDefault(player.getUUID(), 0L);
 
         if (elapsed < COOLDOWN_MS) {
             long remaining = (COOLDOWN_MS - elapsed) / 1000 + 1;
-            player.sendSystemMessage(
+            player.displayClientMessage(
                 Component.literal("Посох перезаряжается... ещё " + remaining + " сек.")
-                         .withStyle(ChatFormatting.RED)
+                         .withStyle(ChatFormatting.RED), false
             );
-            return InteractionResultHolder.fail(stack);
+            return InteractionResult.FAIL;
         }
 
         player.heal(4.0f);
         lastUsed.put(player.getUUID(), now);
-        player.sendSystemMessage(
-            Component.literal("✦ Исцеление: +2 сердца").withStyle(ChatFormatting.GREEN)
+        player.displayClientMessage(
+            Component.literal("✦ Исцеление: +2 сердца").withStyle(ChatFormatting.GREEN), false
         );
-        return InteractionResultHolder.success(stack);
+        return InteractionResult.SUCCESS;
     }
 }

@@ -31,6 +31,12 @@ public final class ModItems {
             new LuckScrollItem()
     );
 
+    public static final Item RANGER_TRAP = Registry.register(
+            BuiltInRegistries.ITEM,
+            Identifier.fromNamespaceAndPath("progression", "ranger_trap"),
+            new TrapItem()
+    );
+
     private ModItems() { }
 
     /** Вызывается из ProgressionMod для инициализации статических полей. */
@@ -45,10 +51,11 @@ public final class ModItems {
      */
     public static void giveClassItem(ServerPlayer player, String playerClass) {
         Item item = switch (playerClass) {
-            case "Жрец"  -> HEALING_STAFF;
-            case "Воин"  -> WAR_CRY;
-            case "Маг"   -> LUCK_SCROLL;
-            default      -> null;
+            case "Жрец"      -> HEALING_STAFF;
+            case "Воин"      -> WAR_CRY;
+            case "Маг"       -> LUCK_SCROLL;
+            case "Следопыт"  -> RANGER_TRAP;
+            default          -> null;
         };
         if (item == null) return;
 

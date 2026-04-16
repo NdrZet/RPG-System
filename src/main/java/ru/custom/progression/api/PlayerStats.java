@@ -78,14 +78,30 @@ public class PlayerStats {
     public boolean upgradeStat(String statName) {
         if (this.skillPoints <= 0) return false;
         switch (statName) {
-            case "strength"     -> this.strength++;
-            case "agility"      -> this.agility++;
-            case "vitality"     -> this.vitality++;
-            case "intelligence" -> this.intelligence++;
+            case "strength"     -> { if (this.strength     >= 50) return false; this.strength++; }
+            case "agility"      -> { if (this.agility      >= 50) return false; this.agility++; }
+            case "vitality"     -> { if (this.vitality     >= 50) return false; this.vitality++; }
+            case "intelligence" -> { if (this.intelligence >= 50) return false; this.intelligence++; }
             default -> { return false; }
         }
         this.skillPoints--;
         return true;
+    }
+
+    /**
+     * Сбрасывает все данные игрока до стартовых значений.
+     * Используется командой администратора {@code /progression reset}.
+     */
+    public void reset() {
+        this.level       = 1;
+        this.experience  = 0;
+        this.rank        = "Новичок";
+        this.skillPoints = 0;
+        this.playerClass = "Странник";
+        this.strength     = 1;
+        this.agility      = 1;
+        this.vitality     = 1;
+        this.intelligence = 1;
     }
 
     /**

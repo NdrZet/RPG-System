@@ -2,6 +2,7 @@ package ru.custom.progression;
 
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.entity.event.v1.ServerEntityCombatEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -13,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.custom.progression.StatEffects;
 import ru.custom.progression.api.PlayerStats;
+import ru.custom.progression.commands.AdminCommands;
 import ru.custom.progression.items.ModItems;
 import ru.custom.progression.network.NetworkHandler;
 import ru.custom.progression.storage.DataManager;
@@ -28,8 +30,10 @@ public class ProgressionMod implements ModInitializer {
 
         ModItems.register();
         NetworkHandler.register();
+        AdminCommands.register();
         registerJoinDisconnect();
         registerMobKillXp();
+        registerPriestRegen();
 
         LOGGER.info("[Progression] Серверная часть мода прогрессии готова.");
     }
@@ -69,6 +73,16 @@ public class ProgressionMod implements ModInitializer {
             PlayerStats stats = DataManager.getPlayer(player.getUUID());
             if (stats == null) return;
 
+            // XP-множитель для Мага зависит от тира
+            if ("Маг".equals(stats.getPlayerClass())) {
+                int lvl = stats.getLevel();
+                int tier = lvl >= 100 ? 5 : lvl >= 70 ? 4 : lvl >= 40 ? 3 : lvl >= 20 ? 2 : 1;
+                double mult = switch (tier) {
+                    case 5 -> 5.0; case 4 -> 3.0; case 3 -> 2.0; case 2 -> 1.5; default -> 1.0;
+                };
+                xp = (int)(xp * mult);
+            }
+
             int levelBefore = stats.getLevel();
             stats.addExperience(xp);
             int levelAfter  = stats.getLevel();
@@ -86,10 +100,40 @@ public class ProgressionMod implements ModInitializer {
                 );
                 LOGGER.info("[Progression] {} достиг {} уровня",
                         player.getName().getString(), levelAfter);
+
+                // Следопыт получает Ловушку на 20-м уровне
+                if (levelAfter == 20 && "Следопыт".equals(stats.getPlayerClass())) {
+                    ModItems.giveClassItem(player, "Следопыт");
+                    player.sendSystemMessage(
+                        Component.literal("🪤 Получена Ловушка Следопыта!")
+                                 .withStyle(ChatFormatting.GREEN)
+                    );
+                }
             }
 
             // Всегда синхронизируем XP с клиентом
             NetworkHandler.sendStatsToPlayer(player, stats);
+        });
+    }
+
+    // ── Пассивная регенерация Жреца ──────────────────────────────────────────
+
+    private static void registerPriestRegen() {
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            // Каждые 100 тиков (5 сек) лечим всех онлайн-Жрецов
+            if (server.getTickCount() % 100 != 0) return;
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                PlayerStats stats = DataManager.getPlayer(player.getUUID());
+                if (stats == null || !"Жрец".equals(stats.getPlayerClass())) continue;
+                int lvl = stats.getLevel();
+                int tier = lvl >= 100 ? 5 : lvl >= 70 ? 4 : lvl >= 40 ? 3 : lvl >= 20 ? 2 : 1;
+                float heal = switch (tier) {
+                    case 5 -> 6f; case 4 -> 4f; case 3 -> 2f; case 2 -> 1f; default -> 0f;
+                };
+                if (heal > 0 && player.getHealth() < player.getMaxHealth()) {
+                    player.heal(heal);
+                }
+            }
         });
     }
 
