@@ -36,7 +36,11 @@ public final class AdminCommands {
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
             dispatcher.register(
                 literal("progression")
-                    .requires(source -> source.hasPermission(2))
+                    .requires(source -> {
+                        // Консоль и другие не-игроки всегда имеют доступ
+                        if (!(source.getEntity() instanceof ServerPlayer player)) return true;
+                        return source.getServer().getPlayerList().isOp(player.nameAndId());
+                    })
                     .then(literal("give")
                         .then(argument("player", EntityArgument.player())
                             .then(literal("xp")
