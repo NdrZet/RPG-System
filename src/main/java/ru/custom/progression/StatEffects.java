@@ -8,6 +8,7 @@ import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import ru.custom.progression.api.PlayerStats;
+import ru.custom.progression.skills.SkillEffects;
 
 /**
  * Применяет AttributeModifier к игроку на основе его характеристик и класса.
@@ -37,6 +38,7 @@ public final class StatEffects {
     public static void apply(ServerPlayer player, PlayerStats stats) {
         applyStatBonuses(player, stats);
         applyClassBonuses(player, stats.getPlayerClass());
+        SkillEffects.apply(player, stats.getPlayerClass(), stats.getUnlockedNodes());
     }
 
     // ── Бонусы от прокачки статов ─────────────────────────────────────────────

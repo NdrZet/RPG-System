@@ -71,4 +71,9 @@ public final class ClientNetworkHandler {
     public static void sendChooseClass(String chosenClass) {
         ClientPlayNetworking.send(new ChooseClassPayload(chosenClass));
     }
+
+    /** Отправляет серверу запрос на активацию ноды древа навыков. */
+    public static void sendUnlockNode(String nodeId) {
+        ClientPlayNetworking.send(new UnlockNodePayload(nodeId));
+    }
 }

@@ -1,5 +1,8 @@
 package ru.custom.progression.api;
 
+import java.util.HashSet;
+import java.util.Set;
+
 /**
  * Модель данных игрока: уровень, опыт, ранг, очки навыков,
  * класс персонажа и четыре базовых стата.
@@ -24,6 +27,10 @@ public class PlayerStats {
     private int agility      = 1;   // AGI — скорость и ловкость
     private int vitality     = 1;   // VIT — здоровье и выносливость
     private int intelligence = 1;   // INT — магия и опыт получения
+
+    // ── Древо навыков ────────────────────────────────────────────────────────
+    /** ID активированных нод древа навыков. */
+    private Set<String> unlockedNodes = new HashSet<>();
 
     // ────────────────────────────────────────────────────────────────────────
     // Конструкторы
@@ -102,6 +109,35 @@ public class PlayerStats {
         this.agility      = 1;
         this.vitality     = 1;
         this.intelligence = 1;
+        if (this.unlockedNodes != null) this.unlockedNodes.clear();
+        else this.unlockedNodes = new HashSet<>();
+    }
+
+    // ── Древо навыков ─────────────────────────────────────────────────────
+
+    public Set<String> getUnlockedNodes() {
+        if (unlockedNodes == null) unlockedNodes = new HashSet<>();
+        return unlockedNodes;
+    }
+
+    public void setUnlockedNodes(Set<String> nodes) {
+        this.unlockedNodes = nodes != null ? nodes : new HashSet<>();
+    }
+
+    public boolean isNodeUnlocked(String id) {
+        return unlockedNodes != null && unlockedNodes.contains(id);
+    }
+
+    /**
+     * Тратит очки навыков и разблокирует указанную ноду.
+     * Вся валидация (граф, стоимость) — в вызывающем коде.
+     */
+    public boolean unlockNode(String id, int cost) {
+        if (this.skillPoints < cost) return false;
+        if (unlockedNodes == null) unlockedNodes = new HashSet<>();
+        if (!unlockedNodes.add(id)) return false;
+        this.skillPoints -= cost;
+        return true;
     }
 
     /**

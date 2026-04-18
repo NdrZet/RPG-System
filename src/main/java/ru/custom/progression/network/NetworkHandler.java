@@ -8,6 +8,9 @@ import org.slf4j.LoggerFactory;
 import ru.custom.progression.StatEffects;
 import ru.custom.progression.api.PlayerStats;
 import ru.custom.progression.items.ModItems;
+import ru.custom.progression.skills.SkillNode;
+import ru.custom.progression.skills.SkillTree;
+import ru.custom.progression.skills.SkillTreeDefinitions;
 import ru.custom.progression.storage.DataManager;
 
 /**
@@ -54,9 +57,16 @@ public final class NetworkHandler {
                 ChooseClassPayload.STREAM_CODEC
         );
 
+        // C2S — активация ноды древа навыков
+        PayloadTypeRegistry.playC2S().register(
+                UnlockNodePayload.TYPE,
+                UnlockNodePayload.STREAM_CODEC
+        );
+
         // ── Регистрируем серверные обработчики ─────────────────────────────
         registerStatUpgradeHandler();
         registerChooseClassHandler();
+        registerUnlockNodeHandler();
 
         LOGGER.info("[Progression] Сетевые обработчики зарегистрированы");
     }
@@ -127,6 +137,64 @@ public final class NetworkHandler {
                             DataManager.savePlayer(player.getUUID());
                             sendStatsToPlayer(player, stats);
                         }
+                    });
+                }
+        );
+    }
+
+    /**
+     * Обрабатывает запрос клиента на активацию ноды древа навыков.
+     * Валидация: класс имеет дерево, нода существует, не активирована, хватает очков,
+     * есть активированный сосед (или это стартовая нода).
+     */
+    private static void registerUnlockNodeHandler() {
+        ServerPlayNetworking.registerGlobalReceiver(
+                UnlockNodePayload.TYPE,
+                (payload, context) -> {
+                    ServerPlayer player = context.player();
+                    String nodeId = payload.nodeId();
+
+                    context.server().execute(() -> {
+                        PlayerStats stats = DataManager.getPlayer(player.getUUID());
+                        if (stats == null) return;
+
+                        SkillTree tree = SkillTreeDefinitions.forClass(stats.getPlayerClass());
+                        if (tree == null) {
+                            LOGGER.warn("[Progression] {} нет дерева для класса {}",
+                                    player.getName().getString(), stats.getPlayerClass());
+                            return;
+                        }
+
+                        SkillNode node = tree.get(nodeId);
+                        if (node == null) {
+                            LOGGER.warn("[Progression] Неизвестная нода: {}", nodeId);
+                            return;
+                        }
+                        if (stats.isNodeUnlocked(nodeId)) return;
+
+                        // Проверка доступности: должен быть хотя бы один активированный сосед
+                        // (или это стартовая нода — её берём бесплатно сразу)
+                        boolean isStart = nodeId.equals(tree.startNodeId());
+                        if (!isStart) {
+                            boolean hasNeighbor = node.neighbors().stream()
+                                    .anyMatch(stats::isNodeUnlocked);
+                            if (!hasNeighbor) {
+                                LOGGER.warn("[Progression] {} пытается взять недоступную ноду {}",
+                                        player.getName().getString(), nodeId);
+                                return;
+                            }
+                        }
+
+                        int cost = isStart ? 0 : node.cost();
+                        if (!stats.unlockNode(nodeId, cost)) {
+                            LOGGER.warn("[Progression] {} не хватило очков на ноду {}",
+                                    player.getName().getString(), nodeId);
+                            return;
+                        }
+
+                        StatEffects.apply(player, stats);
+                        DataManager.savePlayer(player.getUUID());
+                        sendStatsToPlayer(player, stats);
                     });
                 }
         );

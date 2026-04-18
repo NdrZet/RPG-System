@@ -9,28 +9,24 @@ import net.minecraft.network.chat.Component;
 import ru.custom.progression.network.ClientNetworkHandler;
 
 /**
- * Экран выбора класса персонажа.
- * Открывается при нажатии кнопки «ВЫБРАТЬ ПУТЬ» (доступно с 5-го уровня).
- * <p>
- * Доступные классы:
- * <ul>
- *   <li><b>Воин</b>  — бонус к STR и VIT</li>
- *   <li><b>Маг</b>   — бонус к INT</li>
- *   <li><b>Следопыт</b> — бонус к AGI</li>
- *   <li><b>Жрец</b>  — бонус к VIT и INT</li>
- * </ul>
- * После выбора отправляется {@link ru.custom.progression.network.ChooseClassPayload}
- * на сервер, и экран закрывается.
+ * Экран выбора класса персонажа в стиле Sodium.
+ * Открывается кнопкой «Выбрать путь» (доступна с 5-го уровня) из {@link StatsScreen}.
  */
 @Environment(EnvType.CLIENT)
 public class ClassSelectionScreen extends Screen {
 
-    /** Экран, из которого был открыт этот (инвентарь). */
-    private final Screen parentScreen;
+    private static final int COL_BG       = 0xE0000000;
+    private static final int COL_PANEL    = 0xFF0A0A0A;
+    private static final int COL_DIVIDER  = 0xFF2A2A2A;
+    private static final int COL_ACCENT   = 0xFFFFAA00;
+    private static final int COL_TEXT     = 0xFFE0E0E0;
+    private static final int COL_TEXT_DIM = 0xFF888888;
+    private static final int COL_WARNING  = 0xFFFF6347;
 
-    /** Ширина и высота диалогового окна. */
-    private static final int DIALOG_W = 160;
-    private static final int DIALOG_H = 130;
+    private static final int MARGIN      = 16;
+    private static final int SIDEBAR_W   = 160;
+
+    private final Screen parentScreen;
 
     public ClassSelectionScreen(Screen parentScreen) {
         super(Component.literal("Выбор класса"));
@@ -39,83 +35,99 @@ public class ClassSelectionScreen extends Screen {
 
     @Override
     protected void init() {
-        // Центр экрана
-        int cx = (this.width  - DIALOG_W) / 2;
-        int cy = (this.height - DIALOG_H) / 2;
+        int cx = MARGIN + SIDEBAR_W + MARGIN;
+        int cr = this.width - MARGIN;
+        int contentW = cr - cx;
 
-        int btnW = 120;
-        int btnH = 16;
-        int startY = cy + 30;
-        int gap    = 20;
-
-        // ── Кнопки выбора классов ─────────────────────────────────────────
-        this.addRenderableWidget(Button.builder(
-                Component.literal("⚔  Воин  (STR / VIT)"),
-                btn -> selectClass("Воин")
-        ).bounds(cx + 20, startY, btnW, btnH).build());
+        int btnW = Math.min(320, contentW - 16);
+        int btnH = 24;
+        int btnX = cx + (contentW - btnW) / 2;
+        int startY = MARGIN + 80;
+        int gap = btnH + 8;
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("✦  Маг  (INT)"),
-                btn -> selectClass("Маг")
-        ).bounds(cx + 20, startY + gap, btnW, btnH).build());
+                Component.literal("Воин — ближний бой, танк (STR / VIT)"),
+                b -> selectClass("Воин")
+        ).bounds(btnX, startY, btnW, btnH).build());
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("🏹  Следопыт  (AGI)"),
-                btn -> selectClass("Следопыт")
-        ).bounds(cx + 20, startY + gap * 2, btnW, btnH).build());
+                Component.literal("Маг — магия, опыт, удача (INT)"),
+                b -> selectClass("Маг")
+        ).bounds(btnX, startY + gap, btnW, btnH).build());
 
         this.addRenderableWidget(Button.builder(
-                Component.literal("☩  Жрец  (VIT / INT)"),
-                btn -> selectClass("Жрец")
-        ).bounds(cx + 20, startY + gap * 3, btnW, btnH).build());
+                Component.literal("Следопыт — скорость, дальний бой (AGI)"),
+                b -> selectClass("Следопыт")
+        ).bounds(btnX, startY + gap * 2, btnW, btnH).build());
 
-        // ── Отмена ────────────────────────────────────────────────────────
+        this.addRenderableWidget(Button.builder(
+                Component.literal("Жрец — поддержка, лечение (VIT / INT)"),
+                b -> selectClass("Жрец")
+        ).bounds(btnX, startY + gap * 3, btnW, btnH).build());
+
+        // «Назад» в правом нижнем углу (как «Готово» в StatsScreen)
         this.addRenderableWidget(Button.builder(
                 Component.literal("Назад"),
-                btn -> this.onClose()
-        ).bounds(cx + 40, startY + gap * 4, 80, btnH).build());
+                b -> this.onClose()
+        ).bounds(this.width - MARGIN - 80, this.height - MARGIN - 20, 80, 16).build());
     }
 
-    /**
-     * Переопределяем renderBackground чтобы не вызывать blur-эффект повторно.
-     * Blur уже применён инвентарём; второй вызов в тот же кадр бросает
-     * IllegalStateException ("Can only blur once per frame") в MC 1.21.11.
-     */
     @Override
     public void renderBackground(GuiGraphics gfx, int mouseX, int mouseY, float partialTick) {
-        gfx.fill(0, 0, this.width, this.height, 0xAA000000);
+        gfx.fill(0, 0, this.width, this.height, COL_BG);
     }
 
     @Override
     public void render(GuiGraphics gfx, int mouseX, int mouseY, float delta) {
-        // Затемнение фона (через переопределённый renderBackground — без блюра)
         this.renderBackground(gfx, mouseX, mouseY, delta);
 
-        int cx = (this.width  - DIALOG_W) / 2;
-        int cy = (this.height - DIALOG_H) / 2;
-
-        // Фон диалога
-        gfx.fill(cx,     cy,     cx + DIALOG_W, cy + DIALOG_H, 0xDD1A1A2E);
-        // Рамка
-        gfx.fill(cx,     cy,     cx + DIALOG_W, cy + 1,             0xFF5050FF);
-        gfx.fill(cx,     cy + DIALOG_H - 1, cx + DIALOG_W, cy + DIALOG_H, 0xFF5050FF);
-        gfx.fill(cx,     cy, cx + 1,  cy + DIALOG_H, 0xFF5050FF);
-        gfx.fill(cx + DIALOG_W - 1, cy, cx + DIALOG_W, cy + DIALOG_H, 0xFF5050FF);
-
-        // Заголовок
-        gfx.drawCenteredString(this.font,
-                Component.literal("✦ ВЫБРАТЬ ПУТЬ ✦"),
-                this.width / 2, cy + 8, 0xFFD700);
-
-        // Подзаголовок
-        gfx.drawCenteredString(this.font,
-                Component.literal("Выбор необратим!"),
-                this.width / 2, cy + 18, 0xFF6666);
+        drawSidebar(gfx);
+        drawContent(gfx);
 
         super.render(gfx, mouseX, mouseY, delta);
     }
 
-    /** Отправляет выбранный класс на сервер и закрывает экран. */
+    private void drawSidebar(GuiGraphics gfx) {
+        int sx = MARGIN;
+        int sy = MARGIN;
+        int sr = sx + SIDEBAR_W;
+        int sb = this.height - MARGIN;
+
+        gfx.fill(sx, sy, sr, sb, COL_PANEL);
+
+        gfx.drawString(this.font, "SPA Progression", sx + 8, sy + 8, COL_ACCENT, false);
+        gfx.drawString(this.font, "v1.0", sx + 8, sy + 18, COL_TEXT_DIM, false);
+        gfx.fill(sx + 8, sy + 32, sr - 8, sy + 33, COL_DIVIDER);
+
+        gfx.drawString(this.font, "Выбор пути",  sx + 8, sy + 40, 0xFFFFD700, false);
+        gfx.drawString(this.font, "необратим!",  sx + 8, sy + 52, COL_WARNING, false);
+
+        // Короткие подсказки
+        int ty = sy + 72;
+        gfx.drawString(this.font, "• Определяет",        sx + 8, ty,        COL_TEXT_DIM, false);
+        gfx.drawString(this.font, "  бонусы класса",     sx + 8, ty + 10,   COL_TEXT_DIM, false);
+        gfx.drawString(this.font, "• Открывает древо",   sx + 8, ty + 24,   COL_TEXT_DIM, false);
+        gfx.drawString(this.font, "  навыков",           sx + 8, ty + 34,   COL_TEXT_DIM, false);
+        gfx.drawString(this.font, "• Выдаёт классовый",  sx + 8, ty + 48,   COL_TEXT_DIM, false);
+        gfx.drawString(this.font, "  предмет",           sx + 8, ty + 58,   COL_TEXT_DIM, false);
+    }
+
+    private void drawContent(GuiGraphics gfx) {
+        int cx = MARGIN + SIDEBAR_W + MARGIN;
+        int cr = this.width - MARGIN;
+
+        gfx.drawString(this.font, "ВЫБЕРИТЕ КЛАСС",
+                cx, MARGIN + 8, COL_ACCENT, false);
+        gfx.fill(cx, MARGIN + 20, cr, MARGIN + 21, COL_DIVIDER);
+
+        gfx.drawString(this.font,
+                "Каждый класс имеет уникальное древо навыков и стартовые бонусы.",
+                cx, MARGIN + 32, COL_TEXT, false);
+        gfx.drawString(this.font,
+                "После выбора класс нельзя изменить.",
+                cx, MARGIN + 44, COL_WARNING, false);
+    }
+
     private void selectClass(String className) {
         ClientNetworkHandler.sendChooseClass(className);
         this.onClose();
@@ -123,7 +135,6 @@ public class ClassSelectionScreen extends Screen {
 
     @Override
     public void onClose() {
-        // Возвращаемся в инвентарь
         this.minecraft.setScreen(parentScreen);
     }
 

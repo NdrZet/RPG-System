@@ -6,12 +6,12 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
 import ru.custom.progression.api.PlayerStats;
 
+import java.util.HashSet;
+import java.util.Set;
+
 /**
  * Пакет Сервер → Клиент: передаёт актуальные данные прогрессии игрока.
- * Отправляется при каждом изменении статов (повышение уровня, трата очков и т.д.).
- * <p>
- * Поля записываются в {@link FriendlyByteBuf} вручную для максимальной
- * совместимости без зависимости от дополнительных кодеков.
+ * Отправляется при каждом изменении статов.
  */
 public record StatsUpdatePayload(
         int    level,
@@ -22,64 +22,48 @@ public record StatsUpdatePayload(
         int    strength,
         int    agility,
         int    vitality,
-        int    intelligence
+        int    intelligence,
+        Set<String> unlockedNodes
 ) implements CustomPacketPayload {
 
-    /** Уникальный идентификатор пакета. */
     public static final CustomPacketPayload.Type<StatsUpdatePayload> TYPE =
             new CustomPacketPayload.Type<>(
                     Identifier.fromNamespaceAndPath("progression", "stats_update")
             );
 
-    /**
-     * Кодек для сериализации / десериализации пакета.
-     * Порядок записи и чтения полей должен совпадать.
-     */
     public static final StreamCodec<FriendlyByteBuf, StatsUpdatePayload> STREAM_CODEC =
             StreamCodec.of(StatsUpdatePayload::encode, StatsUpdatePayload::decode);
 
-    // ────────────────────────────────────────────────────────────────────────
-    // Вспомогательные методы кодека
-    // ────────────────────────────────────────────────────────────────────────
-
-    /** Запись полей в буфер (порядок строго соответствует decode). */
-    private static void encode(FriendlyByteBuf buf, StatsUpdatePayload payload) {
-        buf.writeVarInt(payload.level());
-        buf.writeVarInt(payload.experience());
-        buf.writeUtf(payload.rank());
-        buf.writeVarInt(payload.skillPoints());
-        buf.writeUtf(payload.playerClass());
-        buf.writeVarInt(payload.strength());
-        buf.writeVarInt(payload.agility());
-        buf.writeVarInt(payload.vitality());
-        buf.writeVarInt(payload.intelligence());
+    private static void encode(FriendlyByteBuf buf, StatsUpdatePayload p) {
+        buf.writeVarInt(p.level());
+        buf.writeVarInt(p.experience());
+        buf.writeUtf(p.rank());
+        buf.writeVarInt(p.skillPoints());
+        buf.writeUtf(p.playerClass());
+        buf.writeVarInt(p.strength());
+        buf.writeVarInt(p.agility());
+        buf.writeVarInt(p.vitality());
+        buf.writeVarInt(p.intelligence());
+        buf.writeVarInt(p.unlockedNodes().size());
+        for (String id : p.unlockedNodes()) buf.writeUtf(id);
     }
 
-    /** Чтение полей из буфера. */
     private static StatsUpdatePayload decode(FriendlyByteBuf buf) {
-        return new StatsUpdatePayload(
-                buf.readVarInt(),   // level
-                buf.readVarInt(),   // experience
-                buf.readUtf(),      // rank
-                buf.readVarInt(),   // skillPoints
-                buf.readUtf(),      // playerClass
-                buf.readVarInt(),   // strength
-                buf.readVarInt(),   // agility
-                buf.readVarInt(),   // vitality
-                buf.readVarInt()    // intelligence
-        );
+        int level = buf.readVarInt();
+        int exp   = buf.readVarInt();
+        String rank = buf.readUtf();
+        int sp = buf.readVarInt();
+        String cls = buf.readUtf();
+        int str = buf.readVarInt();
+        int agi = buf.readVarInt();
+        int vit = buf.readVarInt();
+        int inti = buf.readVarInt();
+        int nodeCount = buf.readVarInt();
+        Set<String> nodes = new HashSet<>();
+        for (int i = 0; i < nodeCount; i++) nodes.add(buf.readUtf());
+        return new StatsUpdatePayload(level, exp, rank, sp, cls, str, agi, vit, inti, nodes);
     }
 
-    // ────────────────────────────────────────────────────────────────────────
-    // Фабричный метод
-    // ────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Создаёт пакет из объекта {@link PlayerStats}.
-     *
-     * @param stats данные игрока
-     * @return готовый пакет для отправки клиенту
-     */
     public static StatsUpdatePayload from(PlayerStats stats) {
         return new StatsUpdatePayload(
                 stats.getLevel(),
@@ -90,15 +74,11 @@ public record StatsUpdatePayload(
                 stats.getStrength(),
                 stats.getAgility(),
                 stats.getVitality(),
-                stats.getIntelligence()
+                stats.getIntelligence(),
+                new HashSet<>(stats.getUnlockedNodes())
         );
     }
 
-    /**
-     * Конвертирует пакет обратно в {@link PlayerStats}.
-     *
-     * @return объект данных, восстановленный из пакета
-     */
     public PlayerStats toStats() {
         PlayerStats s = new PlayerStats();
         s.setLevel(level);
@@ -110,11 +90,10 @@ public record StatsUpdatePayload(
         s.setAgility(agility);
         s.setVitality(vitality);
         s.setIntelligence(intelligence);
+        s.setUnlockedNodes(new HashSet<>(unlockedNodes));
         return s;
     }
 
     @Override
-    public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
-        return TYPE;
-    }
+    public CustomPacketPayload.Type<? extends CustomPacketPayload> type() { return TYPE; }
 }

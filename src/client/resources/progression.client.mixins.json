@@ -3,7 +3,6 @@
   "package": "ru.custom.progression.mixin.client",
   "compatibilityLevel": "JAVA_21",
   "client": [
-    "InventoryScreenMixin"
   ],
   "injectors": {
     "defaultRequire": 1
