@@ -9,7 +9,7 @@ import java.util.List;
  */
 public final class SkillNode {
 
-    public enum Type { START, MINOR, NOTABLE, KEYSTONE }
+    public enum Type { START, MINOR, NOTABLE, KEYSTONE, ACTIVE }
 
     private final String id;
     private final String title;

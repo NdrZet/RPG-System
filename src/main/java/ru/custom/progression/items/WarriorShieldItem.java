@@ -11,24 +11,21 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
-import ru.custom.progression.api.PlayerStats;
-import ru.custom.progression.skills.SkillEventHooks;
-import ru.custom.progression.storage.DataManager;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
 /**
- * Свиток Удачи Мага — Удача I на 60 сек, КД 90 сек.
- * Ноды: −% КД свитка.
+ * Щит Воина — активный предмет, разблокируется нодой {@code w_cmd_shield}.
+ * ПКМ: Absorption IV на 8 сек, КД 120 сек.
  */
-public class LuckScrollItem extends Item {
+public class WarriorShieldItem extends Item {
 
-    private static final long BASE_COOLDOWN_MS = 90_000L;
+    private static final long COOLDOWN_MS = 120_000L;
     private static final Map<UUID, Long> lastUsed = new HashMap<>();
 
-    public LuckScrollItem(Properties props) {
+    public WarriorShieldItem(Properties props) {
         super(props);
     }
 
@@ -37,27 +34,22 @@ public class LuckScrollItem extends Item {
         if (!(level instanceof ServerLevel)) return InteractionResult.PASS;
         if (!(player instanceof ServerPlayer sp)) return InteractionResult.PASS;
 
-        PlayerStats stats = DataManager.getPlayer(sp.getUUID());
-        long cdReduce = stats == null ? 0 : SkillEventHooks.luckScrollCooldownReductionMs(stats);
-        long cooldown = Math.max(10_000L, BASE_COOLDOWN_MS - cdReduce);
-
         long now = System.currentTimeMillis();
         long elapsed = now - lastUsed.getOrDefault(sp.getUUID(), 0L);
 
-        if (elapsed < cooldown) {
-            long remaining = (cooldown - elapsed) / 1000 + 1;
+        if (elapsed < COOLDOWN_MS) {
+            long remaining = (COOLDOWN_MS - elapsed) / 1000 + 1;
             sp.displayClientMessage(
-                Component.literal("Свиток перезаряжается... ещё " + remaining + " сек.")
-                         .withStyle(ChatFormatting.RED), false
+                    Component.literal("Щит перезаряжается... ещё " + remaining + " сек.")
+                            .withStyle(ChatFormatting.RED), false
             );
             return InteractionResult.FAIL;
         }
 
-        sp.addEffect(new MobEffectInstance(MobEffects.LUCK, 1200, 0));
+        sp.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 160, 3));
         lastUsed.put(sp.getUUID(), now);
         sp.displayClientMessage(
-            Component.literal("✦ Удача активирована на 60 сек! Богатый лут ждёт.")
-                     .withStyle(ChatFormatting.GOLD), false
+                Component.literal("⛨ Щит Воина!").withStyle(ChatFormatting.GOLD), false
         );
         return InteractionResult.SUCCESS;
     }

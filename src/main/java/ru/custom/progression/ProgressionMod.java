@@ -110,6 +110,13 @@ public class ProgressionMod implements ModInitializer {
             stats.addExperience(xp);
             int levelAfter  = stats.getLevel();
 
+            // «Мудрец»: каждые 10 уровней +2 очка
+            if (stats.isNodeUnlocked("m_sage") && levelAfter > levelBefore) {
+                for (int l = levelBefore + 1; l <= levelAfter; l++) {
+                    if (l % 10 == 0) stats.setSkillPoints(stats.getSkillPoints() + 2);
+                }
+            }
+
             // Уведомление при повышении уровня
             if (levelAfter > levelBefore) {
                 DataManager.savePlayer(player.getUUID());
@@ -148,6 +155,7 @@ public class ProgressionMod implements ModInitializer {
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                 PlayerStats stats = DataManager.getPlayer(player.getUUID());
                 if (stats == null || !"Жрец".equals(stats.getPlayerClass())) continue;
+                // «Жажда крови» (Воин) отключает пассивную регенерацию, но сюда не попадает.
                 int lvl = stats.getLevel();
                 int tier = lvl >= 100 ? 5 : lvl >= 70 ? 4 : lvl >= 40 ? 3 : lvl >= 20 ? 2 : 1;
                 float heal = switch (tier) {

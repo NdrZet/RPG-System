@@ -10,60 +10,62 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * Реестр классовых предметов.
+ * Реестр классовых и активных предметов (разблокируемых через дерево навыков).
  * Вызов {@link #register()} должен происходить в {@code onInitialize()}.
- * <p>
- * В MC 1.21.11 обязательно передавать {@code ResourceKey} через
- * {@code Item.Properties.setId()} до вызова конструктора {@code Item}.
  */
 public final class ModItems {
 
     private static final String NS = "progression";
 
     // ── ResourceKey для каждого предмета ────────────────────────────────────
-
     private static final ResourceKey<Item> HEALING_STAFF_KEY = key("healing_staff");
     private static final ResourceKey<Item> WAR_CRY_KEY       = key("war_cry");
     private static final ResourceKey<Item> LUCK_SCROLL_KEY   = key("luck_scroll");
     private static final ResourceKey<Item> RANGER_TRAP_KEY   = key("ranger_trap");
+    private static final ResourceKey<Item> WARRIOR_SHIELD_KEY = key("warrior_shield");
+    private static final ResourceKey<Item> TELEPORT_KEY       = key("teleport_rod");
+    private static final ResourceKey<Item> SMOKE_CLOUD_KEY    = key("smoke_cloud");
+    private static final ResourceKey<Item> AURA_KEY           = key("aura_relic");
 
     // ── Зарегистрированные предметы ──────────────────────────────────────────
-
     public static final Item HEALING_STAFF = Registry.register(
-            BuiltInRegistries.ITEM,
-            HEALING_STAFF_KEY,
+            BuiltInRegistries.ITEM, HEALING_STAFF_KEY,
             new HealingStaffItem(new Item.Properties().stacksTo(1).setId(HEALING_STAFF_KEY))
     );
-
     public static final Item WAR_CRY = Registry.register(
-            BuiltInRegistries.ITEM,
-            WAR_CRY_KEY,
+            BuiltInRegistries.ITEM, WAR_CRY_KEY,
             new WarCryItem(new Item.Properties().stacksTo(1).setId(WAR_CRY_KEY))
     );
-
     public static final Item LUCK_SCROLL = Registry.register(
-            BuiltInRegistries.ITEM,
-            LUCK_SCROLL_KEY,
+            BuiltInRegistries.ITEM, LUCK_SCROLL_KEY,
             new LuckScrollItem(new Item.Properties().stacksTo(1).setId(LUCK_SCROLL_KEY))
     );
-
     public static final Item RANGER_TRAP = Registry.register(
-            BuiltInRegistries.ITEM,
-            RANGER_TRAP_KEY,
+            BuiltInRegistries.ITEM, RANGER_TRAP_KEY,
             new TrapItem(new Item.Properties().stacksTo(1).setId(RANGER_TRAP_KEY))
+    );
+    public static final Item WARRIOR_SHIELD = Registry.register(
+            BuiltInRegistries.ITEM, WARRIOR_SHIELD_KEY,
+            new WarriorShieldItem(new Item.Properties().stacksTo(1).setId(WARRIOR_SHIELD_KEY))
+    );
+    public static final Item TELEPORT_ROD = Registry.register(
+            BuiltInRegistries.ITEM, TELEPORT_KEY,
+            new TeleportItem(new Item.Properties().stacksTo(1).setId(TELEPORT_KEY))
+    );
+    public static final Item SMOKE_CLOUD = Registry.register(
+            BuiltInRegistries.ITEM, SMOKE_CLOUD_KEY,
+            new SmokeCloudItem(new Item.Properties().stacksTo(1).setId(SMOKE_CLOUD_KEY))
+    );
+    public static final Item AURA_RELIC = Registry.register(
+            BuiltInRegistries.ITEM, AURA_KEY,
+            new AuraItem(new Item.Properties().stacksTo(1).setId(AURA_KEY))
     );
 
     private ModItems() { }
 
-    /** Вызывается из ProgressionMod для инициализации статических полей. */
-    public static void register() { /* статические поля инициализируются при загрузке класса */ }
+    public static void register() { /* инициализация через загрузку класса */ }
 
-    /**
-     * Выдаёт игроку классовый предмет при выборе класса.
-     *
-     * @param player      игрок
-     * @param playerClass выбранный класс
-     */
+    /** Выдаёт игроку классовый предмет при выборе класса. */
     public static void giveClassItem(ServerPlayer player, String playerClass) {
         Item item = switch (playerClass) {
             case "Жрец"     -> HEALING_STAFF;
@@ -73,14 +75,37 @@ public final class ModItems {
             default         -> null;
         };
         if (item == null) return;
+        giveStack(player, new ItemStack(item));
+    }
 
-        ItemStack stack = new ItemStack(item);
+    /**
+     * Выдаёт активный предмет за разблокированную ноду древа.
+     * @param nodeId id активной ноды
+     * @return {@code true} если предмет существует и был выдан
+     */
+    public static boolean giveNodeItem(ServerPlayer player, String nodeId) {
+        Item item = switch (nodeId) {
+            case "w_cmd_shield"  -> WARRIOR_SHIELD;
+            case "m_teleport"    -> TELEPORT_ROD;
+            case "r_trap_smoke"  -> SMOKE_CLOUD;
+            case "p_aura"        -> AURA_RELIC;
+            default              -> null;
+        };
+        if (item == null) return false;
+        // Защита от дублирования — не выдаём, если предмет уже в инвентаре
+        for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+            ItemStack s = player.getInventory().getItem(i);
+            if (!s.isEmpty() && s.getItem() == item) return false;
+        }
+        giveStack(player, new ItemStack(item));
+        return true;
+    }
+
+    private static void giveStack(ServerPlayer player, ItemStack stack) {
         if (!player.getInventory().add(stack)) {
             player.drop(stack, false);
         }
     }
-
-    // ── Вспомогательный метод ────────────────────────────────────────────────
 
     private static ResourceKey<Item> key(String name) {
         return ResourceKey.create(Registries.ITEM, Identifier.fromNamespaceAndPath(NS, name));

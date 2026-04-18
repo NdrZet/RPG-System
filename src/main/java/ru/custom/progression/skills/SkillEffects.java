@@ -13,6 +13,9 @@ import java.util.Set;
 /**
  * Применяет AttributeModifier'ы к игроку на основе набора активированных нод.
  * Вызывается из {@link ru.custom.progression.StatEffects#apply} после базовых бонусов.
+ * <p>
+ * Все ноды, работающие не через атрибуты (крит, Берсерк, Охотник, Жажда крови,
+ * Бастион, Минное поле и др.), обрабатываются в {@link SkillEventHooks}.
  */
 public final class SkillEffects {
 
@@ -37,11 +40,14 @@ public final class SkillEffects {
             removeAll(player, modId(id));
         }
 
+        // «Мудрец» — Малые пассивки дают на 25% больше эффекта (класс Маг).
+        double minorMult = unlocked.contains("m_sage") ? 1.25 : 1.0;
+
         // Накатываем модификаторы по активным нодам
         for (String id : unlocked) {
             SkillNode n = tree.get(id);
             if (n == null) continue;
-            applyNode(player, n);
+            applyNode(player, n, minorMult);
         }
     }
 
@@ -73,60 +79,100 @@ public final class SkillEffects {
         }
     }
 
-    /** Эффект каждой конкретной ноды — по её id. */
-    private static void applyNode(ServerPlayer p, SkillNode n) {
+    /**
+     * Эффект каждой конкретной ноды — по её id.
+     * Параметр {@code minorMult} применяется к Малым пассивкам (флаг Мудреца).
+     */
+    private static void applyNode(ServerPlayer p, SkillNode n, double minorMult) {
+        double m = (n.type() == SkillNode.Type.MINOR) ? minorMult : 1.0;
+
         switch (n.id()) {
             // ── Воин: Ярость
-            case "w_fury_atk1", "w_fury_atk2" ->
-                    set(p, Attributes.ATTACK_DAMAGE, n.id(), 0.03, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
-            case "w_fury_crit" -> {
-                // Крит обрабатывается event-хуком — атрибута не вешаем, но регистрируем через «пустой» модификатор,
-                // чтобы apply/remove-логика была симметрична.
-            }
-            case "w_fury_berserk", "w_fury_bloodthirst" -> {
-                // Обрабатываются в event-хуках (LivingEntity damage / kill).
-            }
+            case "w_fury_atk1", "w_fury_atk2", "w_fury_atk3" ->
+                    set(p, Attributes.ATTACK_DAMAGE, n.id(), 0.03 * m,
+                            AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+            case "w_fury_crit" -> { /* event-хук: крит 5% */ }
+            case "w_fury_berserk", "w_fury_bloodthirst" -> { /* event-хук */ }
 
             // ── Воин: Стойкость
-            case "w_guard_hp1", "w_guard_hp2" ->
-                    set(p, Attributes.MAX_HEALTH, n.id(), 10.0, AttributeModifier.Operation.ADD_VALUE);
+            case "w_guard_hp1", "w_guard_hp2", "w_guard_hp3" ->
+                    set(p, Attributes.MAX_HEALTH, n.id(), 10.0 * m,
+                            AttributeModifier.Operation.ADD_VALUE);
             case "w_guard_armor" ->
-                    set(p, Attributes.ARMOR, n.id(), 2.0, AttributeModifier.Operation.ADD_VALUE);
-            case "w_guard_bastion", "w_guard_indestructible" -> {
-                // Event-хуки.
+                    set(p, Attributes.ARMOR, n.id(), 2.0 * m,
+                            AttributeModifier.Operation.ADD_VALUE);
+            case "w_guard_iron_skin" ->
+                    set(p, Attributes.ARMOR, n.id(), 4.0,
+                            AttributeModifier.Operation.ADD_VALUE);
+            case "w_guard_bastion", "w_guard_indestructible" -> { /* event-хук */ }
+
+            // ── Воин: Командир
+            case "w_cmd_cd1", "w_cmd_cd2", "w_cmd_dur",
+                 "w_cmd_warcry", "w_cmd_shield", "w_cmd_unshakable" -> {
+                // КД/длительность клича и активный щит — в WarCryItem / ShieldItem.
             }
 
-            // ── Маг
-            case "m_xp1", "m_xp2" -> {
-                // XP-множитель — в registerMobKillXp (проверяем unlocked в ProgressionMod).
-            }
-            case "m_luck" ->
-                    set(p, Attributes.LUCK, n.id(), 5.0, AttributeModifier.Operation.ADD_VALUE);
-            case "m_sage" -> {
-                // Усиление — повторный apply с множителем; упрощённо: игнорируем.
-            }
+            // ── Маг: Мудрость
+            case "m_xp1", "m_xp2", "m_xp3", "m_xp4" -> { /* XP-множитель в хуке */ }
+            case "m_sage", "m_omniscience" -> { /* event/логика */ }
+
+            // ── Маг: Фортуна
+            case "m_luck1", "m_luck2", "m_luck3" ->
+                    set(p, Attributes.LUCK, n.id(), 5.0 * m,
+                            AttributeModifier.Operation.ADD_VALUE);
+            case "m_quality" ->
+                    set(p, Attributes.LUCK, n.id(), 5.0 * m,
+                            AttributeModifier.Operation.ADD_VALUE);
+            case "m_golden_hands", "m_fate" -> { /* event-хук */ }
+
+            // ── Маг: Скорость
+            case "m_spd_cd1", "m_spd_cd2" -> { /* КД свитка — в LuckScrollItem */ }
             case "m_spd1", "m_spd2" ->
-                    set(p, Attributes.MOVEMENT_SPEED, n.id(), 0.03, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
-            case "m_timeless" -> { /* event */ }
+                    set(p, Attributes.MOVEMENT_SPEED, n.id(), 0.03 * m,
+                            AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+            case "m_blink", "m_teleport", "m_timeless" -> { /* event-хук / актив */ }
 
-            // ── Следопыт
-            case "r_spd1", "r_spd2" ->
-                    set(p, Attributes.MOVEMENT_SPEED, n.id(), 0.03, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+            // ── Следопыт: Акробат
+            case "r_spd1", "r_spd2", "r_spd3" ->
+                    set(p, Attributes.MOVEMENT_SPEED, n.id(), 0.03 * m,
+                            AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+            case "r_dodge", "r_wind", "r_elusive" -> { /* event-хук */ }
             case "r_atkspd" ->
-                    set(p, Attributes.ATTACK_SPEED, n.id(), 0.10, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
-            case "r_atk1", "r_atk2" ->
-                    set(p, Attributes.ATTACK_DAMAGE, n.id(), 0.03, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
-            case "r_hunter" -> { /* event */ }
+                    set(p, Attributes.ATTACK_SPEED, n.id(), 0.10 * m,
+                            AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 
-            // ── Жрец
-            case "p_hp1", "p_hp2" ->
-                    set(p, Attributes.MAX_HEALTH, n.id(), 6.0, AttributeModifier.Operation.ADD_VALUE);
-            case "p_regen" -> {
-                // Усиление регенерации — флаг для ProgressionMod.registerPriestRegen.
+            // ── Следопыт: Охота
+            case "r_atk1", "r_atk2", "r_atk4" ->
+                    set(p, Attributes.ATTACK_DAMAGE, n.id(), 0.03 * m,
+                            AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+            case "r_atk3" -> { /* скорость стрелы — в хуке на shoot */ }
+            case "r_eagle", "r_hunter", "r_shadow" -> { /* event-хук */ }
+
+            // ── Следопыт: Ловушки
+            case "r_trap_cd1", "r_trap_cd2", "r_trap_dur",
+                 "r_trap_web", "r_trap_smoke", "r_trap_mine" -> {
+                // Модификация ловушки — в TrapItem / event-хуке.
             }
-            case "p_luck1", "p_luck2" ->
-                    set(p, Attributes.LUCK, n.id(), 3.0, AttributeModifier.Operation.ADD_VALUE);
-            case "p_resurrection" -> { /* event */ }
+
+            // ── Жрец: Исцеление
+            case "p_heal1", "p_heal2", "p_staff_cd1", "p_staff_cd2",
+                 "p_great_heal", "p_resurrection" -> {
+                // Всё читается в HealingStaffItem / event-хуке.
+            }
+
+            // ── Жрец: Защита
+            case "p_hp1", "p_hp2", "p_hp3" ->
+                    set(p, Attributes.MAX_HEALTH, n.id(), 6.0 * m,
+                            AttributeModifier.Operation.ADD_VALUE);
+            case "p_poison_imm", "p_faith_shield", "p_stalwart" -> { /* event-хук */ }
+
+            // ── Жрец: Святость
+            case "p_regen", "p_regen2", "p_cleanse", "p_aura", "p_devoted" -> {
+                // Реген/аура — в ProgressionMod.registerPriestRegen / item.
+            }
+            case "p_luck1" ->
+                    set(p, Attributes.LUCK, n.id(), 3.0 * m,
+                            AttributeModifier.Operation.ADD_VALUE);
 
             default -> {}
         }

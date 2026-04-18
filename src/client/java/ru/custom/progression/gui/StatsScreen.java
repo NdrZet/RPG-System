@@ -350,6 +350,7 @@ public class StatsScreen extends Screen {
             case MINOR    -> 5;
             case NOTABLE  -> 9;
             case KEYSTONE -> 11;
+            case ACTIVE   -> 10;
         };
     }
 
@@ -431,6 +432,7 @@ public class StatsScreen extends Screen {
             case MINOR    -> "Малая";
             case NOTABLE  -> "Notable";
             case KEYSTONE -> "Keystone";
+            case ACTIVE   -> "Актив";
         };
     }
 

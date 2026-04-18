@@ -199,6 +199,11 @@ public final class NetworkHandler {
                             return;
                         }
 
+                        // Для активных нод — выдать соответствующий предмет
+                        if (node.type() == SkillNode.Type.ACTIVE) {
+                            ModItems.giveNodeItem(player, nodeId);
+                        }
+
                         StatEffects.apply(player, stats);
                         DataManager.savePlayer(player.getUUID());
                         sendStatsToPlayer(player, stats);
