@@ -76,4 +76,9 @@ public final class ClientNetworkHandler {
     public static void sendUnlockNode(String nodeId) {
         ClientPlayNetworking.send(new UnlockNodePayload(nodeId));
     }
+
+    /** Отправляет серверу запрос на сброс всех активированных нод и возврат очков. */
+    public static void sendResetSkills() {
+        ClientPlayNetworking.send(new ResetSkillsPayload());
+    }
 }

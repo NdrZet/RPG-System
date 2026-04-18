@@ -5,6 +5,7 @@ import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -97,7 +98,9 @@ public final class SkillEventHooks {
             // Наносим дополнительный урон с защитой от рекурсии
             REENTRY.set(true);
             try {
-                entity.hurtServer(attacker.serverLevel(), source, bonus);
+                if (attacker.level() instanceof ServerLevel sl) {
+                    entity.hurtServer(sl, source, bonus);
+                }
             } finally {
                 REENTRY.set(false);
             }
@@ -125,7 +128,7 @@ public final class SkillEventHooks {
             PlayerStats stats = DataManager.getPlayer(player.getUUID());
             if (stats == null) return true;
 
-            long now = player.serverLevel().getGameTime();
+            long now = player.level().getGameTime();
 
             // Несокрушимый: 1 раз в 5 минут (6000 тиков)
             if (stats.isNodeUnlocked("w_guard_indestructible")
@@ -144,7 +147,7 @@ public final class SkillEventHooks {
             if (stats.isNodeUnlocked("m_timeless")
                     && tickCooldownOk(lastTimelessTick, player.getUUID(), now, 12000L)) {
                 saveFromDeath(player, player.getMaxHealth() * 0.3f);
-                player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 100, 3));
+                player.addEffect(new MobEffectInstance(MobEffects.SPEED, 100, 3));
                 player.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 100, 0));
                 lastTimelessTick.put(player.getUUID(), now);
                 player.sendSystemMessage(

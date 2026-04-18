@@ -52,6 +52,7 @@ public class StatsScreen extends Screen {
     private Button btnStr, btnAgi, btnVit, btnInt;
     private Button btnClass;
     private Button btnClose;
+    private Button btnResetSkills;
     private Button tabStats, tabSkills;
 
     // Для хит-теста клика по нодам: сохраняем последние координаты полотна
@@ -95,6 +96,25 @@ public class StatsScreen extends Screen {
             btnInt = addPlusButton(btnX, rowY + (ROW_H + ROW_GAP) * 3 + 3, "intelligence", hp);
         }
 
+        if (currentTab == Tab.SKILLS) {
+            SkillTree tree = SkillTreeDefinitions.forClass(stats.getPlayerClass());
+            boolean hasRefund = false;
+            if (tree != null) {
+                for (String id : stats.getUnlockedNodes()) {
+                    if (!id.equals(tree.startNodeId())) { hasRefund = true; break; }
+                }
+            }
+            btnResetSkills = Button.builder(
+                    Component.literal("Сбросить навыки"),
+                    b -> {
+                        ClientNetworkHandler.sendResetSkills();
+                        b.active = false;
+                    }
+            ).bounds(contentR - 140, this.height - MARGIN - 20, 140, 16).build();
+            btnResetSkills.active = hasRefund;
+            this.addRenderableWidget(btnResetSkills);
+        }
+
         if (stats.getLevel() >= 5 && "Странник".equals(stats.getPlayerClass())) {
             btnClass = Button.builder(
                     Component.literal("Выбрать путь"),
@@ -103,10 +123,13 @@ public class StatsScreen extends Screen {
             this.addRenderableWidget(btnClass);
         }
 
+        int closeX = currentTab == Tab.SKILLS
+                ? this.width - MARGIN - 140 - 4 - 80
+                : this.width - MARGIN - 80;
         btnClose = Button.builder(
                 Component.literal("Готово"),
                 b -> this.onClose()
-        ).bounds(this.width - MARGIN - 80, this.height - MARGIN - 20, 80, 16).build();
+        ).bounds(closeX, this.height - MARGIN - 20, 80, 16).build();
         this.addRenderableWidget(btnClose);
     }
 
@@ -140,12 +163,22 @@ public class StatsScreen extends Screen {
 
         PlayerStats stats = ClientStatsCache.get();
 
-        if (currentTab == Tab.STATS && ClientStatsCache.consumeReinitFlag()) {
+        if (ClientStatsCache.consumeReinitFlag()) {
             boolean hp = stats.getSkillPoints() > 0;
             if (btnStr != null) btnStr.active = hp;
             if (btnAgi != null) btnAgi.active = hp;
             if (btnVit != null) btnVit.active = hp;
             if (btnInt != null) btnInt.active = hp;
+            if (btnResetSkills != null) {
+                SkillTree tree = SkillTreeDefinitions.forClass(stats.getPlayerClass());
+                boolean hasRefund = false;
+                if (tree != null) {
+                    for (String id : stats.getUnlockedNodes()) {
+                        if (!id.equals(tree.startNodeId())) { hasRefund = true; break; }
+                    }
+                }
+                btnResetSkills.active = hasRefund;
+            }
         }
 
         drawSidebar(gfx, stats);
