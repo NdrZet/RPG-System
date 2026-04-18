@@ -63,10 +63,17 @@ public final class NetworkHandler {
                 UnlockNodePayload.STREAM_CODEC
         );
 
+        // C2S — сброс древа навыков и возврат очков
+        PayloadTypeRegistry.playC2S().register(
+                ResetSkillsPayload.TYPE,
+                ResetSkillsPayload.STREAM_CODEC
+        );
+
         // ── Регистрируем серверные обработчики ─────────────────────────────
         registerStatUpgradeHandler();
         registerChooseClassHandler();
         registerUnlockNodeHandler();
+        registerResetSkillsHandler();
 
         LOGGER.info("[Progression] Сетевые обработчики зарегистрированы");
     }
@@ -195,6 +202,43 @@ public final class NetworkHandler {
                         StatEffects.apply(player, stats);
                         DataManager.savePlayer(player.getUUID());
                         sendStatsToPlayer(player, stats);
+                    });
+                }
+        );
+    }
+
+    /**
+     * Обрабатывает запрос клиента на сброс всех нод древа навыков.
+     * Возвращает сумму стоимостей всех активированных нод в очки навыков
+     * и очищает {@code unlockedNodes}.
+     */
+    private static void registerResetSkillsHandler() {
+        ServerPlayNetworking.registerGlobalReceiver(
+                ResetSkillsPayload.TYPE,
+                (payload, context) -> {
+                    ServerPlayer player = context.player();
+                    context.server().execute(() -> {
+                        PlayerStats stats = DataManager.getPlayer(player.getUUID());
+                        if (stats == null) return;
+
+                        SkillTree tree = SkillTreeDefinitions.forClass(stats.getPlayerClass());
+                        if (tree == null) return;
+
+                        // Считаем сумму возврата (стартовая нода стоит 0)
+                        int refund = 0;
+                        for (String id : stats.getUnlockedNodes()) {
+                            SkillNode n = tree.get(id);
+                            if (n != null && !id.equals(tree.startNodeId())) {
+                                refund += n.cost();
+                            }
+                        }
+
+                        stats.resetSkillTree(refund);
+                        StatEffects.apply(player, stats);
+                        DataManager.savePlayer(player.getUUID());
+                        sendStatsToPlayer(player, stats);
+                        LOGGER.info("[Progression] {} сбросил дерево, возвращено {} очк.",
+                                player.getName().getString(), refund);
                     });
                 }
         );

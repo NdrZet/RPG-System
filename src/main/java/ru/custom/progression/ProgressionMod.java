@@ -18,6 +18,7 @@ import ru.custom.progression.api.PlayerStats;
 import ru.custom.progression.commands.AdminCommands;
 import ru.custom.progression.items.ModItems;
 import ru.custom.progression.network.NetworkHandler;
+import ru.custom.progression.skills.SkillEventHooks;
 import ru.custom.progression.storage.DataManager;
 
 public class ProgressionMod implements ModInitializer {
@@ -36,6 +37,7 @@ public class ProgressionMod implements ModInitializer {
         registerRespawnEffects();
         registerMobKillXp();
         registerPriestRegen();
+        SkillEventHooks.register();
 
         LOGGER.info("[Progression] Серверная часть мода прогрессии готова.");
     }
@@ -100,6 +102,10 @@ public class ProgressionMod implements ModInitializer {
                 xp = (int)(xp * mult);
             }
 
+            // Бонус XP от нод древа навыков (m_xp1, m_xp2)
+            double nodeMult = SkillEventHooks.xpMultiplierFromNodes(stats);
+            if (nodeMult != 1.0) xp = (int)(xp * nodeMult);
+
             int levelBefore = stats.getLevel();
             stats.addExperience(xp);
             int levelAfter  = stats.getLevel();
@@ -147,6 +153,7 @@ public class ProgressionMod implements ModInitializer {
                 float heal = switch (tier) {
                     case 5 -> 6f; case 4 -> 4f; case 3 -> 2f; case 2 -> 1f; default -> 0f;
                 };
+                heal = SkillEventHooks.priestRegenBonus(stats, heal);
                 if (heal > 0 && player.getHealth() < player.getMaxHealth()) {
                     player.heal(heal);
                 }

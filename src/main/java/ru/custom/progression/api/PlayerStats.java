@@ -141,6 +141,16 @@ public class PlayerStats {
     }
 
     /**
+     * Возвращает все потраченные очки и очищает активированные ноды.
+     * @param totalRefund сумма очков к возврату (рассчитывается по стоимостям нод)
+     */
+    public void resetSkillTree(int totalRefund) {
+        if (unlockedNodes == null) unlockedNodes = new HashSet<>();
+        unlockedNodes.clear();
+        this.skillPoints += totalRefund;
+    }
+
+    /**
      * Меняет класс персонажа (доступно с 5-го уровня).
      *
      * @param newClass новый класс персонажа
