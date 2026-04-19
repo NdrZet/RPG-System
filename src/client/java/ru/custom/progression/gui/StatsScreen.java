@@ -59,6 +59,12 @@ public class StatsScreen extends Screen {
     private int treeOriginX;
     private int treeOriginY;
 
+    // Панорамирование дерева мышью (правая или средняя кнопка либо drag по пустому полю)
+    private int treePanX;
+    private int treePanY;
+    private int treeL, treeT, treeR, treeB;
+    private boolean dragging;
+
     public StatsScreen() {
         super(Component.literal("Прогрессия"));
     }
@@ -281,21 +287,28 @@ public class StatsScreen extends Screen {
         }
 
         // Полотно
-        int treeL = cx;
-        int treeT = top + 24;
-        int treeR = cr;
-        int treeB = this.height - MARGIN - 32;
+        this.treeL = cx;
+        this.treeT = top + 24;
+        this.treeR = cr;
+        this.treeB = this.height - MARGIN - 32;
         gfx.fill(treeL, treeT, treeR, treeB, 0xFF050505);
 
+        // Подсказка по навигации
+        gfx.drawString(this.font, "ЛКМ по ноде — активировать · ПКМ/СКМ — перетащить",
+                treeL + 4, treeB - 10, COL_TEXT_DIM, false);
+
         // Центрируем дерево в полотне: ноды имеют локальные координаты,
-        // оригин — так чтобы стартовая нода оказалась в центре по X
+        // оригин — так чтобы стартовая нода оказалась в центре с учётом панорамирования
         SkillNode startNode = tree.get(tree.startNodeId());
         int centerX = (treeL + treeR) / 2;
         int centerY = (treeT + treeB) / 2;
-        this.treeOriginX = centerX - startNode.x();
-        this.treeOriginY = centerY - startNode.y();
+        this.treeOriginX = centerX - startNode.x() + treePanX;
+        this.treeOriginY = centerY - startNode.y() + treePanY;
 
         Set<String> unlocked = stats.getUnlockedNodes();
+
+        // Обрезаем отрисовку дерева полотном, чтобы ничего не вылезало наружу
+        gfx.enableScissor(treeL, treeT, treeR, treeB);
 
         // 1) Связи
         for (SkillNode n : tree.nodes().values()) {
@@ -318,10 +331,16 @@ public class StatsScreen extends Screen {
             int ny = treeOriginY + n.y();
             NodeState state = stateOf(n, unlocked, tree);
             drawNode(gfx, nx, ny, n, state);
-            if (isHovered(mouseX, mouseY, nx, ny, n.type())) hovered = n;
+            if (isHovered(mouseX, mouseY, nx, ny, n.type())
+                    && mouseX >= treeL && mouseX <= treeR
+                    && mouseY >= treeT && mouseY <= treeB) {
+                hovered = n;
+            }
         }
 
-        // 3) Тултип
+        gfx.disableScissor();
+
+        // 3) Тултип — вне scissor, чтобы не обрезался у края полотна
         if (hovered != null) {
             drawTooltip(gfx, hovered, stateOf(hovered, unlocked, tree), mouseX, mouseY, cr);
         }
@@ -393,12 +412,25 @@ public class StatsScreen extends Screen {
     private void drawLink(GuiGraphics gfx, int x1, int y1, int x2, int y2, int color) {
         if (y1 == y2) {
             gfx.fill(Math.min(x1, x2), y1 - 1, Math.max(x1, x2), y1 + 1, color);
-        } else if (x1 == x2) {
+            return;
+        }
+        if (x1 == x2) {
             gfx.fill(x1 - 1, Math.min(y1, y2), x1 + 1, Math.max(y1, y2), color);
-        } else {
-            // Диагональ — рисуем L-образную линию (горизонталь + вертикаль)
-            gfx.fill(Math.min(x1, x2), y1 - 1, Math.max(x1, x2), y1 + 1, color);
-            gfx.fill(x2 - 1, Math.min(y1, y2), x2 + 1, Math.max(y1, y2), color);
+            return;
+        }
+        // Диагональ — Брезенхэм, пиксели 2×2 для толщины
+        int dx = Math.abs(x2 - x1);
+        int dy = Math.abs(y2 - y1);
+        int sx = x1 < x2 ? 1 : -1;
+        int sy = y1 < y2 ? 1 : -1;
+        int err = dx - dy;
+        int x = x1, y = y1;
+        while (true) {
+            gfx.fill(x - 1, y - 1, x + 1, y + 1, color);
+            if (x == x2 && y == y2) break;
+            int e2 = err * 2;
+            if (e2 > -dy) { err -= dy; x += sx; }
+            if (e2 <  dx) { err += dx; y += sy; }
         }
     }
 
@@ -440,27 +472,60 @@ public class StatsScreen extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        if (currentTab == Tab.SKILLS && event.button() == 0) {
-            PlayerStats stats = ClientStatsCache.get();
-            SkillTree tree = SkillTreeDefinitions.forClass(stats.getPlayerClass());
-            if (tree != null) {
-                Set<String> unlocked = stats.getUnlockedNodes();
-                int mx = (int) event.x();
-                int my = (int) event.y();
-                for (SkillNode n : tree.nodes().values()) {
-                    int nx = treeOriginX + n.x();
-                    int ny = treeOriginY + n.y();
-                    if (isHovered(mx, my, nx, ny, n.type())) {
-                        NodeState s = stateOf(n, unlocked, tree);
-                        if (s == NodeState.AVAILABLE) {
-                            ClientNetworkHandler.sendUnlockNode(n.id());
+        if (currentTab == Tab.SKILLS) {
+            int mx = (int) event.x();
+            int my = (int) event.y();
+            boolean inCanvas = mx >= treeL && mx <= treeR && my >= treeT && my <= treeB;
+
+            // ПКМ (1) / СКМ (2) в полотне — начать панорамирование
+            if (inCanvas && (event.button() == 1 || event.button() == 2)) {
+                dragging = true;
+                return true;
+            }
+
+            // ЛКМ — активация ноды
+            if (event.button() == 0 && inCanvas) {
+                PlayerStats stats = ClientStatsCache.get();
+                SkillTree tree = SkillTreeDefinitions.forClass(stats.getPlayerClass());
+                if (tree != null) {
+                    Set<String> unlocked = stats.getUnlockedNodes();
+                    for (SkillNode n : tree.nodes().values()) {
+                        int nx = treeOriginX + n.x();
+                        int ny = treeOriginY + n.y();
+                        if (isHovered(mx, my, nx, ny, n.type())) {
+                            NodeState s = stateOf(n, unlocked, tree);
+                            if (s == NodeState.AVAILABLE) {
+                                ClientNetworkHandler.sendUnlockNode(n.id());
+                            }
+                            return true;
                         }
-                        return true;
                     }
+                    // Клик в пустом месте полотна ЛКМ — тоже начать drag
+                    dragging = true;
+                    return true;
                 }
             }
         }
         return super.mouseClicked(event, doubleClick);
+    }
+
+    @Override
+    public boolean mouseDragged(MouseButtonEvent event, double deltaX, double deltaY) {
+        if (currentTab == Tab.SKILLS && dragging) {
+            treePanX += (int) deltaX;
+            treePanY += (int) deltaY;
+            return true;
+        }
+        return super.mouseDragged(event, deltaX, deltaY);
+    }
+
+    @Override
+    public boolean mouseReleased(MouseButtonEvent event) {
+        if (dragging) {
+            dragging = false;
+            return true;
+        }
+        return super.mouseReleased(event);
     }
 
     @Override

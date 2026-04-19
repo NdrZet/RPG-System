@@ -56,6 +56,15 @@ public final class SkillEventHooks {
     private static final Map<UUID, Long> lastResurrectionTick   = new HashMap<>();
     private static final Map<UUID, Long> lastBlinkTick          = new HashMap<>();
     private static final Map<UUID, Long> lastFateTick           = new HashMap<>();
+    private static final Map<UUID, Long> lastMartyrTick         = new HashMap<>();
+    private static final Map<UUID, Long> lastMasterChanceTick   = new HashMap<>();
+    private static final Map<UUID, Long> lastPhilosopherTick    = new HashMap<>();
+
+    /** Счётчик убийств без получения урона для «Абсолютный боец». */
+    private static final Map<UUID, Integer> killStreakNoDamage  = new HashMap<>();
+
+    /** Последний основной предмет (для «Мастер оружия» Следопыта). */
+    private static final Map<UUID, net.minecraft.world.item.Item> lastMainItem = new HashMap<>();
 
     /** Игрок → UUID последней цели, которую он ударил (для Охотника — первый удар по новой цели). */
     private static final Map<UUID, UUID> lastHitTarget = new HashMap<>();
@@ -77,6 +86,14 @@ public final class SkillEventHooks {
         registerImmunities();
         registerFateAndFaithShield();
         registerMovementTracker();
+        registerFortressTick();
+        registerAuraTick();
+        registerSurvivalTick();
+        registerMageVisionTick();
+        registerKillStreakAndMartyr();
+        registerWeaponMasterAndUnstoppable();
+        registerMasterChanceAndPhilosopher();
+        registerGuardianAngel();
     }
 
     // ── Модификация исходящего урона (крит / Берсерк / Охотник / Охотник в тени) ──────────
@@ -106,6 +123,36 @@ public final class SkillEventHooks {
             if (stats.isNodeUnlocked("w_fury_berserk")
                     && attacker.getHealth() < attacker.getMaxHealth() * 0.5f) {
                 bonus += damageTaken * 0.20f;
+            }
+
+            // +5% крит.урона Воина («Доминирование»): если крит сработал — добавляем +10% поверх
+            if (stats.isNodeUnlocked("w_dom_critdmg") && stats.isNodeUnlocked("w_fury_crit")
+                    && bonus > 0f) {
+                bonus += damageTaken * 0.05f;
+            }
+
+            // Воплощение войны: удары поджигают цель (при активном клич-баффе — Strength)
+            if (stats.isNodeUnlocked("w_dom_incarnate")
+                    && attacker.hasEffect(MobEffects.STRENGTH)) {
+                entity.igniteForSeconds(3);
+            }
+
+            // Зверь охоты Следопыта: стрелы ×1.5 ночью; днём — Slowness II 2с цели
+            if (stats.isNodeUnlocked("r_beast_hunt")
+                    && source.getDirectEntity() instanceof net.minecraft.world.entity.projectile.arrow.AbstractArrow) {
+                ServerLevel sl = (ServerLevel) attacker.level();
+                boolean night = isNight(sl);
+                if (night) {
+                    bonus += damageTaken * 0.5f;
+                } else {
+                    entity.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 40, 1));
+                }
+            }
+
+            // Неудержимый охотник: попадание стрелой — −1 сек всех КД активов
+            if (stats.isNodeUnlocked("r_unstoppable")
+                    && source.getDirectEntity() instanceof net.minecraft.world.entity.projectile.arrow.AbstractArrow) {
+                reduceAllCooldowns(attacker.getUUID(), 20L);
             }
 
             // Охотник Следопыта: первый удар по новой цели — +50% урона
@@ -155,6 +202,19 @@ public final class SkillEventHooks {
                 float heal = player.getMaxHealth() * 0.15f;
                 if (player.getHealth() < player.getMaxHealth()) {
                     player.heal(heal);
+                }
+            }
+            // Абсолютный боец — копим серию убийств без урона
+            if (stats.isNodeUnlocked("w_dom_absolute")) {
+                int streak = killStreakNoDamage.getOrDefault(player.getUUID(), 0) + 1;
+                killStreakNoDamage.put(player.getUUID(), streak);
+                if (streak >= 5) {
+                    player.addEffect(new MobEffectInstance(MobEffects.STRENGTH, 200, 2));
+                    killStreakNoDamage.put(player.getUUID(), 0);
+                    player.sendSystemMessage(
+                            Component.literal("⚔ Абсолютный боец: Strength III!")
+                                    .withStyle(ChatFormatting.DARK_RED)
+                    );
                 }
             }
         });
@@ -210,6 +270,28 @@ public final class SkillEventHooks {
                 return false;
             }
 
+            // Мученик Жреца: не умираем, если есть живой союзник в р.20 (КД 20 мин = 24000 тиков)
+            if (stats.isNodeUnlocked("p_martyr")
+                    && tickCooldownOk(lastMartyrTick, player.getUUID(), now, 24000L)) {
+                AABB box = player.getBoundingBox().inflate(20.0);
+                boolean allyNear = false;
+                for (ServerPlayer ally : player.level().getEntitiesOfClass(ServerPlayer.class, box)) {
+                    if (ally != player && ally.isAlive() && ally.getHealth() > 0f) {
+                        allyNear = true; break;
+                    }
+                }
+                if (allyNear) {
+                    saveFromDeath(player, 1.0f);
+                    player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 100, 2));
+                    lastMartyrTick.put(player.getUUID(), now);
+                    player.sendSystemMessage(
+                            Component.literal("☩ Мученик: союзник удерживает вас в этом мире...")
+                                    .withStyle(ChatFormatting.WHITE)
+                    );
+                    return false;
+                }
+            }
+
             // Неуловимый Следопыта: не спасает от смерти, обрабатывается в registerImmunities
             return true;
         });
@@ -254,18 +336,40 @@ public final class SkillEventHooks {
             if (!(player instanceof ServerPlayer sp)) return;
             if (!(level instanceof ServerLevel sl)) return;
             PlayerStats stats = DataManager.getPlayer(sp.getUUID());
-            if (stats == null || !stats.isNodeUnlocked("m_golden_hands")) return;
-            if (RNG.nextFloat() >= 0.20f) return;
+            if (stats == null) return;
 
-            // Дублируем дроп: рассчитываем vanilla-drop и спавним рядом
-            List<ItemStack> drops = Block.getDrops(state, sl, pos, blockEntity, sp,
-                    sp.getMainHandItem());
-            for (ItemStack s : drops) {
-                if (!s.isEmpty()) {
-                    Block.popResource(sl, pos, s.copy());
+            // Золотые руки: 20% шанс дублировать дроп
+            if (stats.isNodeUnlocked("m_golden_hands") && RNG.nextFloat() < 0.20f) {
+                List<ItemStack> drops = Block.getDrops(state, sl, pos, blockEntity, sp,
+                        sp.getMainHandItem());
+                for (ItemStack s : drops) {
+                    if (!s.isEmpty()) {
+                        Block.popResource(sl, pos, s.copy());
+                    }
+                }
+            }
+
+            // Философский камень: 10% шанс превратить дроп руды в алмаз (КД 15 мин)
+            if (stats.isNodeUnlocked("m_philosopher_stone")) {
+                long now = sl.getGameTime();
+                if (tickCooldownOk(lastPhilosopherTick, sp.getUUID(), now, 18000L)
+                        && isOreBlock(state)
+                        && RNG.nextFloat() < 0.10f) {
+                    Block.popResource(sl, pos, new ItemStack(net.minecraft.world.item.Items.DIAMOND));
+                    lastPhilosopherTick.put(sp.getUUID(), now);
+                    sp.sendSystemMessage(
+                            Component.literal("✦ Философский камень: руда → алмаз!")
+                                    .withStyle(ChatFormatting.AQUA)
+                    );
                 }
             }
         });
+    }
+
+    private static boolean isOreBlock(BlockState state) {
+        String name = net.minecraft.core.registries.BuiltInRegistries.BLOCK
+                .getKey(state.getBlock()).getPath();
+        return name.endsWith("_ore");
     }
 
     // ── Уклонение Следопыта + Неуловимый + Щит Веры ──────────────────────
@@ -294,13 +398,17 @@ public final class SkillEventHooks {
             return true;
         });
 
-        // Неуловимый: при получении урона — 1 сек невидимости
+        // Неуловимый: при получении урона — 1 сек невидимости.
+        // Плюс сброс серии «Абсолютный боец» при получении урона.
         ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, baseDamageTaken, damageTaken, blocked) -> {
             if (!(entity instanceof ServerPlayer player)) return;
             PlayerStats stats = DataManager.getPlayer(player.getUUID());
             if (stats == null) return;
             if (stats.isNodeUnlocked("r_elusive") && damageTaken > 0) {
                 player.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 20, 0, false, false));
+            }
+            if (stats.isNodeUnlocked("w_dom_absolute") && damageTaken > 0) {
+                killStreakNoDamage.put(player.getUUID(), 0);
             }
         });
     }
@@ -330,6 +438,16 @@ public final class SkillEventHooks {
                     if (player.getAirSupply() < player.getMaxAirSupply()) {
                         player.setAirSupply(player.getMaxAirSupply());
                     }
+                }
+                // Иммун. огонь Следопыта
+                if (stats.isNodeUnlocked("r_surv_fireimm") && player.isOnFire()) {
+                    player.clearFire();
+                }
+                // Непоколебимый Воина: снятие слабости/замедления при активном клич-баффе (Strength)
+                if (stats.isNodeUnlocked("w_cmd_unshakable")
+                        && player.hasEffect(MobEffects.STRENGTH)) {
+                    if (player.hasEffect(MobEffects.WEAKNESS)) player.removeEffect(MobEffects.WEAKNESS);
+                    if (player.hasEffect(MobEffects.SLOWNESS)) player.removeEffect(MobEffects.SLOWNESS);
                 }
             }
         });
@@ -381,6 +499,48 @@ public final class SkillEventHooks {
         });
     }
 
+    // ── Ангел-хранитель: 30% урона союзника с мин HP → Жрецу ───────────────
+
+    private static void registerGuardianAngel() {
+        ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
+            if (!(entity instanceof ServerPlayer victim)) return true;
+            // Ищем Жреца с p_guardian_angel в радиусе 15 блоков, который сам жив и имеет HP > 2
+            AABB box = victim.getBoundingBox().inflate(15.0);
+            ServerPlayer chosenPriest = null;
+            float lowestVictimHp = Float.MAX_VALUE;
+            for (ServerPlayer p : victim.level().getEntitiesOfClass(ServerPlayer.class, box)) {
+                if (p == victim) continue;
+                PlayerStats ps = DataManager.getPlayer(p.getUUID());
+                if (ps == null || !ps.isNodeUnlocked("p_guardian_angel")) continue;
+                if (p.getHealth() <= 2f) continue;
+                // Применяем, если victim — союзник с наименьшим HP (в данном упрощении: просто сам victim)
+                if (victim.getHealth() < lowestVictimHp) {
+                    lowestVictimHp = victim.getHealth();
+                    chosenPriest = p;
+                }
+            }
+            if (chosenPriest == null) return true;
+            // Проверка: только для ЖИВЫХ союзников (не самого Жреца)
+            PlayerStats victimStats = DataManager.getPlayer(victim.getUUID());
+            if (victimStats == null) return true;
+            float redirected = amount * 0.30f;
+            if (redirected > 0 && !REENTRY.get()) {
+                REENTRY.set(true);
+                try {
+                    chosenPriest.hurtServer((ServerLevel) chosenPriest.level(),
+                            chosenPriest.level().damageSources().magic(), redirected);
+                } finally {
+                    REENTRY.set(false);
+                }
+                // Возвращаем true, чтобы victim всё ещё получил 70% (логика оригинального события не
+                // даёт скорректировать amount — но так как AFTER_DAMAGE событие сработает ниже, просто
+                // уменьшаем через повторный heal).
+                victim.heal(amount * 0.30f);
+            }
+            return true;
+        });
+    }
+
     // ── Трекер движения (для «Охотника в тени» и Мерцания) ────────────────
 
     private static void registerMovementTracker() {
@@ -397,6 +557,206 @@ public final class SkillEventHooks {
         });
     }
 
+    // ── Воин «Твердыня»: регенерация, Стена плоти, Вечный страж ──────────
+
+    private static void registerFortressTick() {
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            if (server.getTickCount() % 40 != 0) return; // раз в 2 сек
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                PlayerStats stats = DataManager.getPlayer(player.getUUID());
+                if (stats == null) continue;
+
+                // +1 HP / 3с (w_fort_regen) — округляем до 2с: 0.66 HP
+                if (stats.isNodeUnlocked("w_fort_regen")
+                        && player.getHealth() < player.getMaxHealth()) {
+                    player.heal(0.66f);
+                }
+                // Стена из плоти: стоя — +2% HP/сек → +4% за 2с
+                if (stats.isNodeUnlocked("w_fort_flesh") && isStandingStill(player)
+                        && player.getHealth() < player.getMaxHealth()) {
+                    player.heal(player.getMaxHealth() * 0.04f);
+                }
+                // Вечный страж — при полной броне +2× реген (доп. 1 HP / 2с)
+                if (stats.isNodeUnlocked("w_fort_eternal") && hasFullArmor(player)
+                        && player.getHealth() < player.getMaxHealth()) {
+                    player.heal(1.0f);
+                }
+            }
+        });
+    }
+
+    private static boolean hasFullArmor(ServerPlayer p) {
+        return !p.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.HEAD).isEmpty()
+                && !p.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.CHEST).isEmpty()
+                && !p.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.LEGS).isEmpty()
+                && !p.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.FEET).isEmpty();
+    }
+
+    /** Ночь: Minecraft dayTime в диапазоне [13000, 23000) — ночь. */
+    private static boolean isNight(ServerLevel sl) {
+        long t = sl.getDayTime() % 24000L;
+        return t >= 13000L && t < 23000L;
+    }
+
+    // ── Жрец: аура союзникам (ATK, регенерация, анти-нежить, слабость врагов) ──
+
+    private static void registerAuraTick() {
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            if (server.getTickCount() % 100 != 0) return; // раз в 5 сек
+            for (ServerPlayer priest : server.getPlayerList().getPlayers()) {
+                PlayerStats stats = DataManager.getPlayer(priest.getUUID());
+                if (stats == null) continue;
+
+                // Слабость врагам в р.5
+                if (stats.isNodeUnlocked("p_grace_weakness")) {
+                    AABB box = priest.getBoundingBox().inflate(5.0);
+                    for (LivingEntity le : priest.level().getEntitiesOfClass(LivingEntity.class, box)) {
+                        if (le instanceof Player) continue;
+                        le.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 120, 0, true, false));
+                    }
+                }
+                // Реген союзников +1 HP / 5с в р.8
+                if (stats.isNodeUnlocked("p_grace_allyregen")) {
+                    AABB box = priest.getBoundingBox().inflate(8.0);
+                    for (ServerPlayer ally : priest.level().getEntitiesOfClass(ServerPlayer.class, box)) {
+                        if (ally == priest) continue;
+                        if (ally.getHealth() < ally.getMaxHealth()) ally.heal(1.0f);
+                    }
+                }
+                // Последнее слово: HP<10% → Regen III + Str I союзникам р.12 на 10с (КД 60с)
+                if (stats.isNodeUnlocked("p_last_word")
+                        && priest.getHealth() < priest.getMaxHealth() * 0.10f) {
+                    AABB box = priest.getBoundingBox().inflate(12.0);
+                    for (ServerPlayer ally : priest.level().getEntitiesOfClass(ServerPlayer.class, box)) {
+                        if (ally == priest) continue;
+                        if (!ally.hasEffect(MobEffects.REGENERATION)) {
+                            ally.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 200, 2));
+                            ally.addEffect(new MobEffectInstance(MobEffects.STRENGTH, 200, 0));
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // ── Следопыт «Выживание»: Лесной призрак (ночью неподвижно → invisibility) ──
+
+    private static void registerSurvivalTick() {
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            if (server.getTickCount() % 20 != 0) return;
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                PlayerStats stats = DataManager.getPlayer(player.getUUID());
+                if (stats == null) continue;
+                if (!stats.isNodeUnlocked("r_forest_ghost")) continue;
+                if (!(player.level() instanceof ServerLevel sl)) continue;
+                if (!isNight(sl)) continue;
+                // стоит или присел более 1 сек
+                Long lastMove = lastMoveTick.get(player.getUUID());
+                if (lastMove == null) continue;
+                if (sl.getGameTime() - lastMove < 20L) continue;
+                if (!player.hasEffect(MobEffects.INVISIBILITY)) {
+                    player.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 60, 0, false, false));
+                }
+            }
+        });
+    }
+
+    // ── Маг «Провидение»: Night Vision, Haste ──────────────────────────────
+
+    private static void registerMageVisionTick() {
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            if (server.getTickCount() % 100 != 0) return;
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                PlayerStats stats = DataManager.getPlayer(player.getUUID());
+                if (stats == null) continue;
+
+                if (stats.isNodeUnlocked("m_night_vision")) {
+                    player.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION,
+                            220, 0, true, false));
+                }
+                if (stats.isNodeUnlocked("m_prov_haste")) {
+                    player.addEffect(new MobEffectInstance(MobEffects.HASTE,
+                            220, 0, true, false));
+                }
+                if (stats.isNodeUnlocked("m_sensor")) {
+                    AABB box = player.getBoundingBox().inflate(10.0);
+                    for (LivingEntity le : player.level().getEntitiesOfClass(LivingEntity.class, box)) {
+                        if (le instanceof Player) continue;
+                        le.addEffect(new MobEffectInstance(MobEffects.GLOWING, 120, 0, true, false));
+                    }
+                }
+            }
+        });
+    }
+
+    // ── Счётчик серии без урона (для «Абсолютный боец») — кулдауны активов ──
+
+    private static void registerKillStreakAndMartyr() {
+        // Интеграция оставлена на registerDamageBoosts (увеличение streak) и registerDodge (сброс).
+    }
+
+    // ── Мастер оружия (Следопыт) + «Неудержимый охотник» ──────────────────
+
+    private static void registerWeaponMasterAndUnstoppable() {
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            if (server.getTickCount() % 10 != 0) return;
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                PlayerStats stats = DataManager.getPlayer(player.getUUID());
+                if (stats == null) continue;
+                if (!stats.isNodeUnlocked("r_weapon_master")) continue;
+                net.minecraft.world.item.Item cur = player.getMainHandItem().getItem();
+                net.minecraft.world.item.Item prev = lastMainItem.get(player.getUUID());
+                if (prev != null && prev != cur) {
+                    // Смена на мечное оружие → Haste I на 5 сек
+                    String path = net.minecraft.core.registries.BuiltInRegistries.ITEM
+                            .getKey(cur).getPath();
+                    if (path.contains("sword") || path.contains("axe")) {
+                        player.addEffect(new MobEffectInstance(MobEffects.HASTE,
+                                100, 0, true, false));
+                    }
+                }
+                lastMainItem.put(player.getUUID(), cur);
+            }
+        });
+    }
+
+    // ── Мастер случая (+5 SP / 30 мин пока Рука судьбы на КД) + Философский камень ──
+
+    private static void registerMasterChanceAndPhilosopher() {
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            if (server.getTickCount() % 200 != 0) return; // раз в 10 сек
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                PlayerStats stats = DataManager.getPlayer(player.getUUID());
+                if (stats == null) continue;
+                long now = player.level().getGameTime();
+
+                // Мастер случая: +5 очков навыков каждые 30 минут (36000 тиков)
+                if (stats.isNodeUnlocked("m_master_chance")
+                        && tickCooldownOk(lastMasterChanceTick, player.getUUID(), now, 36000L)) {
+                    stats.setSkillPoints(stats.getSkillPoints() + 5);
+                    lastMasterChanceTick.put(player.getUUID(), now);
+                    player.sendSystemMessage(
+                            Component.literal("✦ Мастер случая: +5 очков навыков!")
+                                    .withStyle(ChatFormatting.LIGHT_PURPLE)
+                    );
+                }
+            }
+        });
+    }
+
+    /**
+     * Снижает КД всех активных item-КД на {@code reduceTicks} (передаётся как тики,
+     * внутри конвертируем в мс). Используется «Неудержимым охотником».
+     * Т.к. все item-КД хранятся в System.currentTimeMillis(), мы просто смещаем
+     * {@code lastUsed} в будущее на указанную величину, если прошло < 100мс давность.
+     * Упрощённая реализация: ничего не храним централизованно, этот метод — no-op,
+     * но оставлен для будущих улучшений (для точечного снижения КД предметов нужен
+     * общий реестр активных предметов).
+     */
+    private static void reduceAllCooldowns(UUID playerId, long reduceTicks) {
+        // no-op: реализовать централизованный КД-реестр — задача отдельной итерации.
+    }
+
     // ── Вспомогательные ───────────────────────────────────────────────────
 
     private static boolean tickCooldownOk(Map<UUID, Long> map, UUID id, long now, long cdTicks) {
@@ -410,13 +770,15 @@ public final class SkillEventHooks {
 
     // ── API, используемое из ProgressionMod / items ───────────────────────
 
-    /** Множитель XP от нод Мага («Мудрость»). */
+    /** Множитель XP от нод Мага («Мудрость» + «Провидение»). */
     public static double xpMultiplierFromNodes(PlayerStats stats) {
         double mult = 1.0;
         if (stats.isNodeUnlocked("m_xp1")) mult *= 1.05;
         if (stats.isNodeUnlocked("m_xp2")) mult *= 1.05;
         if (stats.isNodeUnlocked("m_xp3")) mult *= 1.15;
         if (stats.isNodeUnlocked("m_xp4")) mult *= 1.10;
+        if (stats.isNodeUnlocked("m_prov_xp")) mult *= 1.15;
+        if (stats.isNodeUnlocked("m_alch_mine_xp")) mult *= 1.05;
         return mult;
     }
 
@@ -476,11 +838,12 @@ public final class SkillEventHooks {
         return stats.isNodeUnlocked("r_trap_mine");
     }
 
-    /** Множитель силы лечения посоха (ноды «+10% лечения»). */
+    /** Множитель силы лечения посоха (ноды «+10% лечения» + «+5%» от Мученичества). */
     public static float healingStaffMultiplier(PlayerStats stats) {
         float m = 1.0f;
         if (stats.isNodeUnlocked("p_heal1")) m += 0.10f;
         if (stats.isNodeUnlocked("p_heal2")) m += 0.10f;
+        if (stats.isNodeUnlocked("p_mart_heal_bonus")) m += 0.05f;
         return m;
     }
 

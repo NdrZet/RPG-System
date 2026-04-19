@@ -112,6 +112,23 @@ public final class SkillEffects {
                 // КД/длительность клича и активный щит — в WarCryItem / ShieldItem.
             }
 
+            // ── Воин: Твердыня
+            case "w_fort_hp1", "w_fort_hp2", "w_fort_hp3" ->
+                    set(p, Attributes.MAX_HEALTH, n.id(), 4.0 * m,
+                            AttributeModifier.Operation.ADD_VALUE);
+            case "w_fort_res1", "w_fort_res2", "w_fort_flesh",
+                 "w_fort_regen", "w_fort_eternal" -> { /* event-хук */ }
+
+            // ── Воин: Доминирование
+            case "w_dom_atk1", "w_dom_atk2" ->
+                    set(p, Attributes.ATTACK_DAMAGE, n.id(), 0.05 * m,
+                            AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+            case "w_dom_hp" ->
+                    set(p, Attributes.MAX_HEALTH, n.id(), 8.0 * m,
+                            AttributeModifier.Operation.ADD_VALUE);
+            case "w_dom_critdmg", "w_dom_incarnate",
+                 "w_dom_leap", "w_dom_absolute" -> { /* event-хук / актив */ }
+
             // ── Маг: Мудрость
             case "m_xp1", "m_xp2", "m_xp3", "m_xp4" -> { /* XP-множитель в хуке */ }
             case "m_sage", "m_omniscience" -> { /* event/логика */ }
@@ -131,6 +148,21 @@ public final class SkillEffects {
                     set(p, Attributes.MOVEMENT_SPEED, n.id(), 0.03 * m,
                             AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
             case "m_blink", "m_teleport", "m_timeless" -> { /* event-хук / актив */ }
+
+            // ── Маг: Алхимия
+            case "m_alch_luck" ->
+                    set(p, Attributes.LUCK, n.id(), 10.0 * m,
+                            AttributeModifier.Operation.ADD_VALUE);
+            case "m_alch_potions", "m_alch_mine_xp", "m_grand_alchemist",
+                 "m_alch_speed", "m_philosopher_stone" -> { /* event-хук */ }
+
+            // ── Маг: Провидение
+            case "m_prov_xp" -> { /* XP-множитель в хуке */ }
+            case "m_prov_luck" ->
+                    set(p, Attributes.LUCK, n.id(), 8.0 * m,
+                            AttributeModifier.Operation.ADD_VALUE);
+            case "m_night_vision", "m_sensor", "m_prov_haste",
+                 "m_fate_eye", "m_time_bubble", "m_master_chance" -> { /* event-хук / актив */ }
 
             // ── Следопыт: Акробат
             case "r_spd1", "r_spd2", "r_spd3" ->
@@ -154,6 +186,20 @@ public final class SkillEffects {
                 // Модификация ловушки — в TrapItem / event-хуке.
             }
 
+            // ── Следопыт: Выживание
+            case "r_surv_hp" ->
+                    set(p, Attributes.MAX_HEALTH, n.id(), 4.0 * m,
+                            AttributeModifier.Operation.ADD_VALUE);
+            case "r_surv_night1", "r_surv_night2", "r_surv_fireimm",
+                 "r_forest_ghost", "r_beast_hunt" -> { /* event-хук */ }
+
+            // ── Следопыт: Арсенал
+            case "r_ars_atkspd" ->
+                    set(p, Attributes.ATTACK_SPEED, n.id(), 0.03 * m,
+                            AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+            case "r_ars_atk", "r_ars_poison", "r_weapon_master",
+                 "r_fan_arrows", "r_unstoppable", "r_ars_smokecd" -> { /* event-хук / актив */ }
+
             // ── Жрец: Исцеление
             case "p_heal1", "p_heal2", "p_staff_cd1", "p_staff_cd2",
                  "p_great_heal", "p_resurrection" -> {
@@ -173,6 +219,22 @@ public final class SkillEffects {
             case "p_luck1" ->
                     set(p, Attributes.LUCK, n.id(), 3.0 * m,
                             AttributeModifier.Operation.ADD_VALUE);
+
+            // ── Жрец: Благодать
+            case "p_grace_hp" ->
+                    set(p, Attributes.MAX_HEALTH, n.id(), 3.0 * m,
+                            AttributeModifier.Operation.ADD_VALUE);
+            case "p_grace_atk1", "p_grace_atk2", "p_grace_undead",
+                 "p_grace_allyregen", "p_grace_weakness",
+                 "p_holy_wrath", "p_guardian_angel" -> { /* event-хук */ }
+
+            // ── Жрец: Мученичество
+            case "p_mart_hp" ->
+                    set(p, Attributes.MAX_HEALTH, n.id(), 10.0 * m,
+                            AttributeModifier.Operation.ADD_VALUE);
+            case "p_mart_regen", "p_mart_sacrifice", "p_last_word",
+                 "p_sacrifice_light", "p_martyr",
+                 "p_mart_resist", "p_mart_heal_bonus" -> { /* event-хук / актив */ }
 
             default -> {}
         }

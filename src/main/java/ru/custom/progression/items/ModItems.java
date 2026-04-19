@@ -26,6 +26,10 @@ public final class ModItems {
     private static final ResourceKey<Item> TELEPORT_KEY       = key("teleport_rod");
     private static final ResourceKey<Item> SMOKE_CLOUD_KEY    = key("smoke_cloud");
     private static final ResourceKey<Item> AURA_KEY           = key("aura_relic");
+    private static final ResourceKey<Item> LEAP_KEY           = key("warrior_leap");
+    private static final ResourceKey<Item> TIME_BUBBLE_KEY    = key("time_bubble");
+    private static final ResourceKey<Item> FAN_ARROWS_KEY     = key("fan_arrows");
+    private static final ResourceKey<Item> SACRIFICE_KEY      = key("sacrifice_relic");
 
     // ── Зарегистрированные предметы ──────────────────────────────────────────
     public static final Item HEALING_STAFF = Registry.register(
@@ -60,6 +64,22 @@ public final class ModItems {
             BuiltInRegistries.ITEM, AURA_KEY,
             new AuraItem(new Item.Properties().stacksTo(1).setId(AURA_KEY))
     );
+    public static final Item WARRIOR_LEAP = Registry.register(
+            BuiltInRegistries.ITEM, LEAP_KEY,
+            new LeapItem(new Item.Properties().stacksTo(1).setId(LEAP_KEY))
+    );
+    public static final Item TIME_BUBBLE = Registry.register(
+            BuiltInRegistries.ITEM, TIME_BUBBLE_KEY,
+            new TimeBubbleItem(new Item.Properties().stacksTo(1).setId(TIME_BUBBLE_KEY))
+    );
+    public static final Item FAN_ARROWS = Registry.register(
+            BuiltInRegistries.ITEM, FAN_ARROWS_KEY,
+            new FanArrowsItem(new Item.Properties().stacksTo(1).setId(FAN_ARROWS_KEY))
+    );
+    public static final Item SACRIFICE_RELIC = Registry.register(
+            BuiltInRegistries.ITEM, SACRIFICE_KEY,
+            new SacrificeRelicItem(new Item.Properties().stacksTo(1).setId(SACRIFICE_KEY))
+    );
 
     private ModItems() { }
 
@@ -85,11 +105,15 @@ public final class ModItems {
      */
     public static boolean giveNodeItem(ServerPlayer player, String nodeId) {
         Item item = switch (nodeId) {
-            case "w_cmd_shield"  -> WARRIOR_SHIELD;
-            case "m_teleport"    -> TELEPORT_ROD;
-            case "r_trap_smoke"  -> SMOKE_CLOUD;
-            case "p_aura"        -> AURA_RELIC;
-            default              -> null;
+            case "w_cmd_shield"       -> WARRIOR_SHIELD;
+            case "m_teleport"         -> TELEPORT_ROD;
+            case "r_trap_smoke"       -> SMOKE_CLOUD;
+            case "p_aura"             -> AURA_RELIC;
+            case "w_dom_leap"         -> WARRIOR_LEAP;
+            case "m_time_bubble"      -> TIME_BUBBLE;
+            case "r_fan_arrows"       -> FAN_ARROWS;
+            case "p_sacrifice_light"  -> SACRIFICE_RELIC;
+            default                   -> null;
         };
         if (item == null) return false;
         // Защита от дублирования — не выдаём, если предмет уже в инвентаре
