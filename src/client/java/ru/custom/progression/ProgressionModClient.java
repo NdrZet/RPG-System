@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.custom.progression.api.ClientStatsCache;
 import ru.custom.progression.gui.OmniscienceHud;
+import ru.custom.progression.gui.PlayerStatusHud;
 import ru.custom.progression.gui.StatsScreen;
 import ru.custom.progression.network.ClientNetworkHandler;
 
@@ -38,6 +39,7 @@ public class ProgressionModClient implements ClientModInitializer {
 
         ClientNetworkHandler.register();
         OmniscienceHud.register();
+        PlayerStatusHud.register();
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             ClientStatsCache.reset();
