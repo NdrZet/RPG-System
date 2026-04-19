@@ -19,10 +19,6 @@ import ru.custom.progression.api.PlayerStats;
 import ru.custom.progression.skills.SkillEventHooks;
 import ru.custom.progression.storage.DataManager;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
-
 /**
  * Ловушка Следопыта — создаёт облако Slowness III + Weakness I.
  * Ноды: −% КД, +длительность, «Паутина» (Slowness 255 на 1 сек),
@@ -31,7 +27,6 @@ import java.util.UUID;
 public class TrapItem extends Item {
 
     private static final long BASE_COOLDOWN_MS = 45_000L;
-    private static final Map<UUID, Long> lastUsed = new HashMap<>();
 
     public TrapItem(Properties props) {
         super(props);
@@ -50,7 +45,7 @@ public class TrapItem extends Item {
 
         long cooldown = Math.max(10_000L, BASE_COOLDOWN_MS - cdReduce);
         long now = System.currentTimeMillis();
-        long elapsed = now - lastUsed.getOrDefault(sp.getUUID(), 0L);
+        long elapsed = now - SkillEventHooks.getItemLastUsed(this, sp.getUUID());
 
         if (elapsed < cooldown) {
             long remaining = (cooldown - elapsed) / 1000 + 1;
@@ -88,7 +83,7 @@ public class TrapItem extends Item {
         }
         serverLevel.addFreshEntity(cloud);
 
-        lastUsed.put(sp.getUUID(), now);
+        SkillEventHooks.registerItemCooldown(this, sp.getUUID(), now);
         sp.displayClientMessage(
             Component.literal("🪤 Ловушка расставлена!").withStyle(ChatFormatting.GREEN), false
         );

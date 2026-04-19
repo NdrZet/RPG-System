@@ -12,10 +12,7 @@ import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import ru.custom.progression.skills.SkillEventHooks;
 
 /**
  * Телепорт Мага — переносит игрока к точке прицела (до 32 блоков).
@@ -25,7 +22,6 @@ public class TeleportItem extends Item {
 
     private static final long COOLDOWN_MS = 30_000L;
     private static final double MAX_RANGE = 32.0;
-    private static final Map<UUID, Long> lastUsed = new HashMap<>();
 
     public TeleportItem(Properties props) {
         super(props);
@@ -37,7 +33,7 @@ public class TeleportItem extends Item {
         if (!(player instanceof ServerPlayer sp)) return InteractionResult.PASS;
 
         long now = System.currentTimeMillis();
-        long elapsed = now - lastUsed.getOrDefault(sp.getUUID(), 0L);
+        long elapsed = now - SkillEventHooks.getItemLastUsed(this, sp.getUUID());
         if (elapsed < COOLDOWN_MS) {
             long remaining = (COOLDOWN_MS - elapsed) / 1000 + 1;
             sp.displayClientMessage(
@@ -61,7 +57,7 @@ public class TeleportItem extends Item {
 
         sp.teleportTo(dst.x, dst.y, dst.z);
         sp.fallDistance = 0f;
-        lastUsed.put(sp.getUUID(), now);
+        SkillEventHooks.registerItemCooldown(this, sp.getUUID(), now);
 
         sp.displayClientMessage(
                 Component.literal("✦ Телепорт").withStyle(ChatFormatting.AQUA), false

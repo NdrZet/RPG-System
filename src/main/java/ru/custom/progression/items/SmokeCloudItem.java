@@ -13,10 +13,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import ru.custom.progression.skills.SkillEventHooks;
 
 /**
  * Дымовая Завеса Следопыта — Blindness II врагам в радиусе 5 блоков на 5 сек.
@@ -25,7 +22,6 @@ import java.util.UUID;
 public class SmokeCloudItem extends Item {
 
     private static final long COOLDOWN_MS = 60_000L;
-    private static final Map<UUID, Long> lastUsed = new HashMap<>();
 
     public SmokeCloudItem(Properties props) {
         super(props);
@@ -37,7 +33,7 @@ public class SmokeCloudItem extends Item {
         if (!(player instanceof ServerPlayer sp)) return InteractionResult.PASS;
 
         long now = System.currentTimeMillis();
-        long elapsed = now - lastUsed.getOrDefault(sp.getUUID(), 0L);
+        long elapsed = now - SkillEventHooks.getItemLastUsed(this, sp.getUUID());
         if (elapsed < COOLDOWN_MS) {
             long remaining = (COOLDOWN_MS - elapsed) / 1000 + 1;
             sp.displayClientMessage(
@@ -55,7 +51,7 @@ public class SmokeCloudItem extends Item {
             le.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 100, 0));
         }
 
-        lastUsed.put(sp.getUUID(), now);
+        SkillEventHooks.registerItemCooldown(this, sp.getUUID(), now);
         sp.displayClientMessage(
                 Component.literal("☁ Дымовая завеса").withStyle(ChatFormatting.GRAY), false
         );

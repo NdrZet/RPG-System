@@ -12,10 +12,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import ru.custom.progression.skills.SkillEventHooks;
 
 /**
  * Аура Защиты Жреца — союзники в радиусе 8 блоков получают Resistance I + Regen I на 15 сек.
@@ -24,7 +21,6 @@ import java.util.UUID;
 public class AuraItem extends Item {
 
     private static final long COOLDOWN_MS = 120_000L;
-    private static final Map<UUID, Long> lastUsed = new HashMap<>();
 
     public AuraItem(Properties props) {
         super(props);
@@ -36,7 +32,7 @@ public class AuraItem extends Item {
         if (!(player instanceof ServerPlayer sp)) return InteractionResult.PASS;
 
         long now = System.currentTimeMillis();
-        long elapsed = now - lastUsed.getOrDefault(sp.getUUID(), 0L);
+        long elapsed = now - SkillEventHooks.getItemLastUsed(this, sp.getUUID());
         if (elapsed < COOLDOWN_MS) {
             long remaining = (COOLDOWN_MS - elapsed) / 1000 + 1;
             sp.displayClientMessage(
@@ -52,7 +48,7 @@ public class AuraItem extends Item {
             ally.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 300, 0));
         }
 
-        lastUsed.put(sp.getUUID(), now);
+        SkillEventHooks.registerItemCooldown(this, sp.getUUID(), now);
         sp.displayClientMessage(
                 Component.literal("☩ Аура Защиты").withStyle(ChatFormatting.WHITE), false
         );

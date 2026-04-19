@@ -745,16 +745,13 @@ public final class SkillEventHooks {
     }
 
     /**
-     * Снижает КД всех активных item-КД на {@code reduceTicks} (передаётся как тики,
-     * внутри конвертируем в мс). Используется «Неудержимым охотником».
-     * Т.к. все item-КД хранятся в System.currentTimeMillis(), мы просто смещаем
-     * {@code lastUsed} в будущее на указанную величину, если прошло < 100мс давность.
-     * Упрощённая реализация: ничего не храним централизованно, этот метод — no-op,
-     * но оставлен для будущих улучшений (для точечного снижения КД предметов нужен
-     * общий реестр активных предметов).
+     * Снижает КД всех активных item-КД игрока на {@code reduceTicks} тиков
+     * (1 тик = 50 мс). Используется «Неудержимым охотником».
+     * Работает через {@link #itemCooldownRegistry} — Item должен вызывать
+     * {@link #registerItemCooldown} при каждом успешном использовании.
      */
     private static void reduceAllCooldowns(UUID playerId, long reduceTicks) {
-        // no-op: реализовать централизованный КД-реестр — задача отдельной итерации.
+        shiftCooldown(playerId, reduceTicks * 50L);
     }
 
     // ── Вспомогательные ───────────────────────────────────────────────────
@@ -880,5 +877,39 @@ public final class SkillEventHooks {
 
     public static void markBlinkUsed(UUID id, long now) {
         lastBlinkTick.put(id, now);
+    }
+
+    /** Время последнего мерцания в тиках (или 0). */
+    public static long lastBlinkTick(UUID id) {
+        return lastBlinkTick.getOrDefault(id, 0L);
+    }
+
+    // ── Централизованный реестр КД активных предметов — для «Неудержимый охотник» ──
+
+    /** Item → UUID → timestamp (ms) последнего использования. */
+    private static final Map<net.minecraft.world.item.Item, Map<UUID, Long>> itemCooldownRegistry
+            = new HashMap<>();
+
+    /**
+     * Регистрирует предмет в реестре для использования {@link #shiftCooldown}.
+     * Вызывать из Item.use перед проверкой КД.
+     */
+    public static void registerItemCooldown(net.minecraft.world.item.Item item,
+                                             UUID playerId, long nowMs) {
+        itemCooldownRegistry.computeIfAbsent(item, k -> new HashMap<>()).put(playerId, nowMs);
+    }
+
+    /** Возвращает последний момент использования предмета игроком (ms) или 0. */
+    public static long getItemLastUsed(net.minecraft.world.item.Item item, UUID playerId) {
+        Map<UUID, Long> m = itemCooldownRegistry.get(item);
+        return m == null ? 0L : m.getOrDefault(playerId, 0L);
+    }
+
+    /** Сдвигает все известные {@code lastUsed} игрока на {@code reduceMs} назад. */
+    private static void shiftCooldown(UUID playerId, long reduceMs) {
+        for (Map<UUID, Long> m : itemCooldownRegistry.values()) {
+            Long last = m.get(playerId);
+            if (last != null) m.put(playerId, last - reduceMs);
+        }
     }
 }

@@ -11,10 +11,7 @@ import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import ru.custom.progression.skills.SkillEventHooks;
 
 /**
  * Щит Воина — активный предмет, разблокируется нодой {@code w_cmd_shield}.
@@ -23,7 +20,6 @@ import java.util.UUID;
 public class WarriorShieldItem extends Item {
 
     private static final long COOLDOWN_MS = 120_000L;
-    private static final Map<UUID, Long> lastUsed = new HashMap<>();
 
     public WarriorShieldItem(Properties props) {
         super(props);
@@ -35,7 +31,7 @@ public class WarriorShieldItem extends Item {
         if (!(player instanceof ServerPlayer sp)) return InteractionResult.PASS;
 
         long now = System.currentTimeMillis();
-        long elapsed = now - lastUsed.getOrDefault(sp.getUUID(), 0L);
+        long elapsed = now - SkillEventHooks.getItemLastUsed(this, sp.getUUID());
 
         if (elapsed < COOLDOWN_MS) {
             long remaining = (COOLDOWN_MS - elapsed) / 1000 + 1;
@@ -47,7 +43,7 @@ public class WarriorShieldItem extends Item {
         }
 
         sp.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 160, 3));
-        lastUsed.put(sp.getUUID(), now);
+        SkillEventHooks.registerItemCooldown(this, sp.getUUID(), now);
         sp.displayClientMessage(
                 Component.literal("⛨ Щит Воина!").withStyle(ChatFormatting.GOLD), false
         );

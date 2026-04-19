@@ -17,10 +17,7 @@ import ru.custom.progression.skills.SkillEventHooks;
 import ru.custom.progression.storage.DataManager;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 
 /**
  * Посох Жреца — лечит 4 HP, КД 30 сек.
@@ -30,7 +27,6 @@ public class HealingStaffItem extends Item {
 
     private static final long BASE_COOLDOWN_MS = 30_000L;
     private static final float BASE_HEAL = 4.0f;
-    private static final Map<UUID, Long> lastUsed = new HashMap<>();
 
     public HealingStaffItem(Properties props) {
         super(props);
@@ -49,7 +45,7 @@ public class HealingStaffItem extends Item {
 
         long cooldown = Math.max(3_000L, BASE_COOLDOWN_MS - cdReduce);
         long now = System.currentTimeMillis();
-        long elapsed = now - lastUsed.getOrDefault(sp.getUUID(), 0L);
+        long elapsed = now - SkillEventHooks.getItemLastUsed(this, sp.getUUID());
 
         if (elapsed < cooldown) {
             long remaining = (cooldown - elapsed) / 1000 + 1;
@@ -81,7 +77,7 @@ public class HealingStaffItem extends Item {
             for (var h : toRemove) sp.removeEffect(h);
         }
 
-        lastUsed.put(sp.getUUID(), now);
+        SkillEventHooks.registerItemCooldown(this, sp.getUUID(), now);
         sp.displayClientMessage(
             Component.literal("✦ Исцеление").withStyle(ChatFormatting.GREEN), false
         );

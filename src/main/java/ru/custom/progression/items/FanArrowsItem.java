@@ -11,10 +11,7 @@ import net.minecraft.world.entity.projectile.arrow.Arrow;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import ru.custom.progression.skills.SkillEventHooks;
 
 /**
  * Веер стрел Следопыта — выпускает 5 стрел веером с 60% базового урона.
@@ -23,7 +20,6 @@ import java.util.UUID;
 public class FanArrowsItem extends Item {
 
     private static final long COOLDOWN_MS = 25_000L;
-    private static final Map<UUID, Long> lastUsed = new HashMap<>();
 
     public FanArrowsItem(Properties props) {
         super(props);
@@ -35,7 +31,7 @@ public class FanArrowsItem extends Item {
         if (!(player instanceof ServerPlayer sp)) return InteractionResult.PASS;
 
         long now = System.currentTimeMillis();
-        long elapsed = now - lastUsed.getOrDefault(sp.getUUID(), 0L);
+        long elapsed = now - SkillEventHooks.getItemLastUsed(this, sp.getUUID());
         if (elapsed < COOLDOWN_MS) {
             long remaining = (COOLDOWN_MS - elapsed) / 1000 + 1;
             sp.displayClientMessage(
@@ -66,7 +62,7 @@ public class FanArrowsItem extends Item {
             sl.addFreshEntity(arrow);
         }
 
-        lastUsed.put(sp.getUUID(), now);
+        SkillEventHooks.registerItemCooldown(this, sp.getUUID(), now);
         sp.displayClientMessage(
                 Component.literal("🏹 Веер стрел!").withStyle(ChatFormatting.GREEN), false
         );

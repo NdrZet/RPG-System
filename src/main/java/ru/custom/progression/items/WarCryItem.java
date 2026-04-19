@@ -15,10 +15,6 @@ import ru.custom.progression.api.PlayerStats;
 import ru.custom.progression.skills.SkillEventHooks;
 import ru.custom.progression.storage.DataManager;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
-
 /**
  * Боевой Клич Воина — активная способность: Сила I на 10 сек.
  * Ноды дерева: −% КД, +сек длительности, Haste I (Военный клич).
@@ -27,7 +23,6 @@ public class WarCryItem extends Item {
 
     private static final long BASE_COOLDOWN_MS = 60_000L;
     private static final int  BASE_DURATION_TICKS = 200;
-    private static final Map<UUID, Long> lastUsed = new HashMap<>();
 
     public WarCryItem(Properties props) {
         super(props);
@@ -45,7 +40,7 @@ public class WarCryItem extends Item {
 
         long cooldown = Math.max(5_000L, BASE_COOLDOWN_MS - cdReduce);
         long now = System.currentTimeMillis();
-        long elapsed = now - lastUsed.getOrDefault(sp.getUUID(), 0L);
+        long elapsed = now - SkillEventHooks.getItemLastUsed(this, sp.getUUID());
 
         if (elapsed < cooldown) {
             long remaining = (cooldown - elapsed) / 1000 + 1;
@@ -62,7 +57,7 @@ public class WarCryItem extends Item {
             sp.addEffect(new MobEffectInstance(MobEffects.HASTE, duration, 0));
         }
 
-        lastUsed.put(sp.getUUID(), now);
+        SkillEventHooks.registerItemCooldown(this, sp.getUUID(), now);
         sp.displayClientMessage(
             Component.literal("⚔ Боевой клич!").withStyle(ChatFormatting.RED), false
         );

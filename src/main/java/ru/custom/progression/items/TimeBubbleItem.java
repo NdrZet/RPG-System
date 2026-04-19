@@ -13,10 +13,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import ru.custom.progression.skills.SkillEventHooks;
 
 /**
  * Временной пузырь Мага — мобы в радиусе 6 получают Slowness V на 4 сек,
@@ -26,7 +23,6 @@ import java.util.UUID;
 public class TimeBubbleItem extends Item {
 
     private static final long COOLDOWN_MS = 45_000L;
-    private static final Map<UUID, Long> lastUsed = new HashMap<>();
 
     public TimeBubbleItem(Properties props) {
         super(props);
@@ -38,7 +34,7 @@ public class TimeBubbleItem extends Item {
         if (!(player instanceof ServerPlayer sp)) return InteractionResult.PASS;
 
         long now = System.currentTimeMillis();
-        long elapsed = now - lastUsed.getOrDefault(sp.getUUID(), 0L);
+        long elapsed = now - SkillEventHooks.getItemLastUsed(this, sp.getUUID());
         if (elapsed < COOLDOWN_MS) {
             long remaining = (COOLDOWN_MS - elapsed) / 1000 + 1;
             sp.displayClientMessage(
@@ -56,7 +52,7 @@ public class TimeBubbleItem extends Item {
         }
         sp.addEffect(new MobEffectInstance(MobEffects.SPEED, 80, 1));
 
-        lastUsed.put(sp.getUUID(), now);
+        SkillEventHooks.registerItemCooldown(this, sp.getUUID(), now);
         sp.displayClientMessage(
                 Component.literal("✦ Временной пузырь").withStyle(ChatFormatting.AQUA), false
         );

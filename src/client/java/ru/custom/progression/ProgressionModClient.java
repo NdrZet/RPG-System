@@ -11,6 +11,7 @@ import net.minecraft.client.KeyMapping;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.custom.progression.api.ClientStatsCache;
+import ru.custom.progression.gui.OmniscienceHud;
 import ru.custom.progression.gui.StatsScreen;
 import ru.custom.progression.network.ClientNetworkHandler;
 
@@ -36,6 +37,7 @@ public class ProgressionModClient implements ClientModInitializer {
         LOGGER.info("[Progression] Инициализация клиентской части мода прогрессии...");
 
         ClientNetworkHandler.register();
+        OmniscienceHud.register();
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             ClientStatsCache.reset();
