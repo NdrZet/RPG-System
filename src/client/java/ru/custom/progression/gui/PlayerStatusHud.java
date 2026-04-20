@@ -21,8 +21,10 @@ import net.minecraft.world.food.FoodData;
 public final class PlayerStatusHud {
 
     // ── Геометрия ────────────────────────────────────────────────────────────
-    private static final int X = 6;
+    /** X бара. Иконка рисуется в (X − 10), нужно место под неё. */
+    private static final int X = 16;
     private static final int Y = 6;
+    private static final int ICON_OFFSET = 10;
     private static final int BAR_WIDTH = 110;
     private static final int BAR_HEIGHT = 8;
     private static final int ROW_GAP = 12;
@@ -110,8 +112,7 @@ public final class PlayerStatusHud {
         int y = Y;
         drawHealthBar(gfx, mc.font, X, y, displayedHp, maxHp, displayedAbsorb);
         y += ROW_GAP;
-        drawBar(gfx, mc.font, X, y, displayedArmor, 20f, armor, 20f,
-                COLOR_ARMOR, "\u2726"); // ✦ звезда — щит
+        drawArmorBar(gfx, mc.font, X, y, displayedArmor, armor);
         y += ROW_GAP;
         drawBar(gfx, mc.font, X, y, displayedFood, 20f, food, 20f,
                 COLOR_FOOD, "\u25C9"); // ◉ — еда
@@ -143,7 +144,24 @@ public final class PlayerStatusHud {
         if (absorbShown > 0.01f) label += " +" + ceilInt(absorbShown);
         gfx.drawString(font, label, x + BAR_WIDTH + 4, y, COLOR_TEXT, true);
 
-        gfx.drawString(font, "\u2764", x - 8, y, COLOR_HP_LOW, true); // ❤
+        gfx.drawString(font, "\u2764", x - ICON_OFFSET, y, COLOR_HP_LOW, true); // ❤
+    }
+
+    /**
+     * Бар брони без верхнего лимита. Заполнение считается по скользящей шкале:
+     * каждая следующая «двадцатка» укладывается во всё более сжатую долю бара,
+     * поэтому 20/40/80/∞ всегда влезают, и число не расходится с визуалом.
+     */
+    private static void drawArmorBar(GuiGraphics gfx, Font font, int x, int y,
+                                     float shown, float real) {
+        drawBarFrame(gfx, x, y, BAR_WIDTH, BAR_HEIGHT);
+        float ratio = 1f - (float) Math.pow(0.5d, Math.max(0f, shown) / 20d);
+        int fillW = (int) (BAR_WIDTH * ratio);
+        gfx.fill(x, y, x + fillW, y + BAR_HEIGHT, COLOR_ARMOR);
+
+        String label = Integer.toString(ceilInt(real));
+        gfx.drawString(font, label, x + BAR_WIDTH + 4, y, COLOR_TEXT, true);
+        gfx.drawString(font, "\u2726", x - ICON_OFFSET, y, COLOR_ARMOR, true); // ✦
     }
 
     private static void drawBar(GuiGraphics gfx, Font font, int x, int y,
@@ -157,7 +175,7 @@ public final class PlayerStatusHud {
 
         String label = ceilInt(realValue) + "/" + ceilInt(realMax);
         gfx.drawString(font, label, x + BAR_WIDTH + 4, y, COLOR_TEXT, true);
-        gfx.drawString(font, icon, x - 8, y, color, true);
+        gfx.drawString(font, icon, x - ICON_OFFSET, y, color, true);
     }
 
     private static void drawXpBar(GuiGraphics gfx, Font font, int x, int y, Player p) {

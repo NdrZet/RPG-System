@@ -30,6 +30,11 @@ public final class ModItems {
     private static final ResourceKey<Item> TIME_BUBBLE_KEY    = key("time_bubble");
     private static final ResourceKey<Item> FAN_ARROWS_KEY     = key("fan_arrows");
     private static final ResourceKey<Item> SACRIFICE_KEY      = key("sacrifice_relic");
+    // Тирированное снаряжение
+    private static final ResourceKey<Item> BERSERK_AXE_KEY        = key("berserk_axe");
+    private static final ResourceKey<Item> BLOODTHIRST_BLADE_KEY  = key("bloodthirst_blade");
+    private static final ResourceKey<Item> SACRED_STAFF_KEY       = key("sacred_staff");
+    private static final ResourceKey<Item> ARCHPRIEST_STAFF_KEY   = key("archpriest_staff");
 
     // ── Зарегистрированные предметы ──────────────────────────────────────────
     public static final Item HEALING_STAFF = Registry.register(
@@ -81,6 +86,24 @@ public final class ModItems {
             new SacrificeRelicItem(new Item.Properties().stacksTo(1).setId(SACRIFICE_KEY))
     );
 
+    // ── Тирированное снаряжение ─────────────────────────────────────────────
+    public static final Item BERSERK_AXE = Registry.register(
+            BuiltInRegistries.ITEM, BERSERK_AXE_KEY,
+            new BerserkAxeItem(new Item.Properties().stacksTo(1).setId(BERSERK_AXE_KEY))
+    );
+    public static final Item BLOODTHIRST_BLADE = Registry.register(
+            BuiltInRegistries.ITEM, BLOODTHIRST_BLADE_KEY,
+            new BloodthirstBladeItem(new Item.Properties().stacksTo(1).setId(BLOODTHIRST_BLADE_KEY))
+    );
+    public static final Item SACRED_STAFF = Registry.register(
+            BuiltInRegistries.ITEM, SACRED_STAFF_KEY,
+            new SacredStaffItem(new Item.Properties().stacksTo(1).setId(SACRED_STAFF_KEY))
+    );
+    public static final Item ARCHPRIEST_STAFF = Registry.register(
+            BuiltInRegistries.ITEM, ARCHPRIEST_STAFF_KEY,
+            new ArchpriestStaffItem(new Item.Properties().stacksTo(1).setId(ARCHPRIEST_STAFF_KEY))
+    );
+
     private ModItems() { }
 
     public static void register() { /* инициализация через загрузку класса */ }
@@ -113,6 +136,11 @@ public final class ModItems {
             case "m_time_bubble"      -> TIME_BUBBLE;
             case "r_fan_arrows"       -> FAN_ARROWS;
             case "p_sacrifice_light"  -> SACRIFICE_RELIC;
+            // Тирированное снаряжение (добавляется рядом с базовыми активами)
+            case "w_fury_berserk"      -> BERSERK_AXE;
+            case "w_fury_bloodthirst"  -> BLOODTHIRST_BLADE;
+            case "p_great_heal"        -> SACRED_STAFF;
+            case "p_resurrection"      -> ARCHPRIEST_STAFF;
             default                   -> null;
         };
         if (item == null) return false;

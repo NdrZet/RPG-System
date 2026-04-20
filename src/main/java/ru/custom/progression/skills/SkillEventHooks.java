@@ -2,6 +2,7 @@ package ru.custom.progression.skills;
 
 import net.fabricmc.fabric.api.entity.event.v1.ServerEntityCombatEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.minecraft.ChatFormatting;
@@ -11,6 +12,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.tags.EntityTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
@@ -77,6 +79,16 @@ public final class SkillEventHooks {
     private static final Identifier BASTION_ID =
             Identifier.fromNamespaceAndPath("progression", "skill_w_guard_bastion_tick");
 
+    /** Идентификатор временного бонуса скорости от «m_alch_speed» (активен при Luck). */
+    private static final Identifier ALCH_SPEED_ID =
+            Identifier.fromNamespaceAndPath("progression", "skill_m_alch_speed_tick");
+
+    /** КД автотелепорта «Мерцание» при получении урона. */
+    private static final Map<UUID, Long> lastAutoBlinkTick = new HashMap<>();
+
+    /** Последний момент, когда игрок «только что» начал эффект Luck (для «Великий алхимик»). */
+    private static final Map<UUID, Long> lastGrandAlchemistGrant = new HashMap<>();
+
     public static void register() {
         registerDamageBoosts();
         registerDeathSavers();
@@ -94,6 +106,14 @@ public final class SkillEventHooks {
         registerWeaponMasterAndUnstoppable();
         registerMasterChanceAndPhilosopher();
         registerGuardianAngel();
+        registerArrowSpeedBoost();
+        registerBowShotEffects();
+        registerAlchemyTick();
+        registerBlinkAutoEscape();
+        registerFateEyeTick();
+        registerPriestGraceAura();
+        registerUndeadResistance();
+        registerTieredMeleeWeapons();
     }
 
     // ── Модификация исходящего урона (крит / Берсерк / Охотник / Охотник в тени) ──────────
@@ -754,6 +774,241 @@ public final class SkillEventHooks {
         shiftCooldown(playerId, reduceTicks * 50L);
     }
 
+    // ── Следопыт: +10% к скорости выпущенной стрелы (r_atk3) ──────────────
+
+    private static void registerArrowSpeedBoost() {
+        ServerEntityEvents.ENTITY_LOAD.register((entity, world) -> {
+            if (!(entity instanceof net.minecraft.world.entity.projectile.arrow.AbstractArrow arrow)) return;
+            if (!(arrow.getOwner() instanceof ServerPlayer shooter)) return;
+            PlayerStats stats = DataManager.getPlayer(shooter.getUUID());
+            if (stats == null || !stats.isNodeUnlocked("r_atk3")) return;
+            arrow.setDeltaMovement(arrow.getDeltaMovement().scale(1.10));
+        });
+    }
+
+    // ── Следопыт: +7% урона луком и Poison I на 3 сек при попадании ──────
+
+    private static void registerBowShotEffects() {
+        ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, baseDamageTaken, damageTaken, blocked) -> {
+            if (REENTRY.get()) return;
+            if (blocked || damageTaken <= 0) return;
+            if (!(source.getDirectEntity() instanceof net.minecraft.world.entity.projectile.arrow.AbstractArrow)) return;
+            if (!(source.getEntity() instanceof ServerPlayer attacker)) return;
+
+            PlayerStats stats = DataManager.getPlayer(attacker.getUUID());
+            if (stats == null) return;
+
+            float bonus = 0f;
+            if (stats.isNodeUnlocked("r_ars_atk")) {
+                bonus += damageTaken * 0.07f;
+            }
+            if (stats.isNodeUnlocked("r_ars_poison")) {
+                entity.addEffect(new MobEffectInstance(MobEffects.POISON, 60, 0));
+            }
+            if (bonus > 0f && attacker.level() instanceof ServerLevel sl) {
+                REENTRY.set(true);
+                try {
+                    entity.hurtServer(sl, source, bonus);
+                } finally {
+                    REENTRY.set(false);
+                }
+            }
+        });
+    }
+
+    // ── Маг «Алхимия»: продление зелий, SPD при Luck, Великий алхимик ────
+
+    private static void registerAlchemyTick() {
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            if (server.getTickCount() % 20 != 0) return; // раз в секунду
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                PlayerStats stats = DataManager.getPlayer(player.getUUID());
+                if (stats == null) continue;
+
+                // m_alch_speed: +3% MOVEMENT_SPEED пока активен Luck
+                AttributeInstance speed = player.getAttribute(Attributes.MOVEMENT_SPEED);
+                if (speed != null) {
+                    boolean shouldBuff = stats.isNodeUnlocked("m_alch_speed")
+                            && player.hasEffect(MobEffects.LUCK);
+                    boolean hasBuff = speed.getModifier(ALCH_SPEED_ID) != null;
+                    if (shouldBuff && !hasBuff) {
+                        speed.addPermanentModifier(new AttributeModifier(
+                                ALCH_SPEED_ID, 0.03, AttributeModifier.Operation.ADD_MULTIPLIED_BASE));
+                    } else if (!shouldBuff && hasBuff) {
+                        speed.removeModifier(ALCH_SPEED_ID);
+                    }
+                }
+
+                // m_alch_potions: +20% длительности любого зелья — продлеваем каждый тиковый раз
+                if (stats.isNodeUnlocked("m_alch_potions")) {
+                    for (MobEffectInstance eff : player.getActiveEffects().toArray(new MobEffectInstance[0])) {
+                        if (!eff.getEffect().value().isBeneficial()) continue;
+                        if (eff.isInfiniteDuration() || eff.getDuration() <= 20) continue;
+                        // Продлеваем только «свежие» эффекты: раз в 5 секунд докидываем +1 сек,
+                        // что примерно эквивалентно +20% длительности.
+                        if (server.getTickCount() % 100 == 0) {
+                            player.addEffect(new MobEffectInstance(
+                                    eff.getEffect(),
+                                    eff.getDuration() + 20,
+                                    eff.getAmplifier(),
+                                    eff.isAmbient(),
+                                    eff.isVisible(),
+                                    eff.showIcon()));
+                        }
+                    }
+                }
+
+                // m_grand_alchemist: при обнаружении любого «полезного» эффекта (кроме Luck) —
+                // разово выдаём Luck I на 30 сек. КД 60 сек, чтобы не спамить.
+                if (stats.isNodeUnlocked("m_grand_alchemist")) {
+                    long now = player.level().getGameTime();
+                    boolean hasOtherBuff = false;
+                    for (MobEffectInstance eff : player.getActiveEffects()) {
+                        if (eff.getEffect() == MobEffects.LUCK) continue;
+                        if (eff.getEffect().value().isBeneficial()) { hasOtherBuff = true; break; }
+                    }
+                    if (hasOtherBuff
+                            && !player.hasEffect(MobEffects.LUCK)
+                            && tickCooldownOk(lastGrandAlchemistGrant, player.getUUID(), now, 1200L)) {
+                        player.addEffect(new MobEffectInstance(MobEffects.LUCK, 600, 0, true, false));
+                        lastGrandAlchemistGrant.put(player.getUUID(), now);
+                    }
+                }
+            }
+        });
+    }
+
+    // ── Маг «Мерцание» (m_blink): автотелепорт назад при получении урона, КД 90 сек ──
+
+    private static void registerBlinkAutoEscape() {
+        ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, baseDamageTaken, damageTaken, blocked) -> {
+            if (!(entity instanceof ServerPlayer player)) return;
+            if (damageTaken <= 0) return;
+            PlayerStats stats = DataManager.getPlayer(player.getUUID());
+            if (stats == null || !stats.isNodeUnlocked("m_blink")) return;
+
+            long now = player.level().getGameTime();
+            if (!tickCooldownOk(lastAutoBlinkTick, player.getUUID(), now, 1800L)) return;
+
+            // Телепорт на ~6 блоков назад от направления взгляда
+            Vec3 back = player.getViewVector(1.0f).scale(-6.0);
+            double tx = player.getX() + back.x;
+            double ty = player.getY();
+            double tz = player.getZ() + back.z;
+            player.teleportTo(tx, ty, tz);
+            player.fallDistance = 0f;
+            lastAutoBlinkTick.put(player.getUUID(), now);
+            player.sendSystemMessage(
+                    Component.literal("✦ Мерцание: уход!").withStyle(ChatFormatting.AQUA),
+                    true
+            );
+        });
+    }
+
+    // ── Маг «Око судьбы» (m_fate_eye): подсветка мобов и игроков в р.20 ───
+
+    private static void registerFateEyeTick() {
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            if (server.getTickCount() % 100 != 0) return; // раз в 5 сек
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                PlayerStats stats = DataManager.getPlayer(player.getUUID());
+                if (stats == null || !stats.isNodeUnlocked("m_fate_eye")) continue;
+                AABB box = player.getBoundingBox().inflate(20.0);
+                for (LivingEntity le : player.level().getEntitiesOfClass(LivingEntity.class, box)) {
+                    if (le == player) continue;
+                    le.addEffect(new MobEffectInstance(MobEffects.GLOWING, 120, 0, true, false));
+                }
+            }
+        });
+    }
+
+    // ── Жрец «Благодать»: ATK-аура союзникам (p_grace_atk1 / p_grace_atk2) ──
+
+    private static void registerPriestGraceAura() {
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            if (server.getTickCount() % 100 != 0) return; // раз в 5 сек
+            for (ServerPlayer priest : server.getPlayerList().getPlayers()) {
+                PlayerStats stats = DataManager.getPlayer(priest.getUUID());
+                if (stats == null) continue;
+                boolean atk1 = stats.isNodeUnlocked("p_grace_atk1");
+                boolean atk2 = stats.isNodeUnlocked("p_grace_atk2");
+                if (!atk1 && !atk2) continue;
+
+                int amplifier = atk2 ? 1 : 0; // +10% (Strength II ≈ +3HP) / +5% (Strength I)
+                AABB box = priest.getBoundingBox().inflate(10.0);
+                for (ServerPlayer ally : priest.level().getEntitiesOfClass(ServerPlayer.class, box)) {
+                    if (ally == priest) continue;
+                    ally.addEffect(new MobEffectInstance(
+                            MobEffects.STRENGTH, 120, amplifier, true, false));
+                }
+            }
+        });
+    }
+
+    // ── Тирированное оружие Воина: бонус-урон + lifesteal при убийстве ───
+
+    private static void registerTieredMeleeWeapons() {
+        ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, baseDamageTaken, damageTaken, blocked) -> {
+            if (REENTRY.get()) return;
+            if (blocked || damageTaken <= 0) return;
+            if (!(source.getEntity() instanceof ServerPlayer attacker)) return;
+            if (attacker == entity) return;
+            // Только ближний бой — исключаем стрелы/снаряды
+            if (source.getDirectEntity() != attacker) return;
+
+            net.minecraft.world.item.Item held = attacker.getMainHandItem().getItem();
+            float bonus = 0f;
+
+            if (held instanceof ru.custom.progression.items.BerserkAxeItem) {
+                bonus += ru.custom.progression.items.BerserkAxeItem.BONUS_DAMAGE;
+                if (attacker.getHealth() < attacker.getMaxHealth() * 0.5f) {
+                    bonus += damageTaken * ru.custom.progression.items.BerserkAxeItem.LOW_HP_BONUS_MULT;
+                }
+            } else if (held instanceof ru.custom.progression.items.BloodthirstBladeItem) {
+                bonus += ru.custom.progression.items.BloodthirstBladeItem.BONUS_DAMAGE;
+            }
+
+            if (bonus <= 0f) return;
+            if (!(attacker.level() instanceof ServerLevel sl)) return;
+            REENTRY.set(true);
+            try {
+                entity.hurtServer(sl, source, bonus);
+            } finally {
+                REENTRY.set(false);
+            }
+        });
+
+        ServerEntityCombatEvents.AFTER_KILLED_OTHER_ENTITY.register((world, killer, killed, source) -> {
+            if (!(killer instanceof ServerPlayer player)) return;
+            net.minecraft.world.item.Item held = player.getMainHandItem().getItem();
+            if (!(held instanceof ru.custom.progression.items.BloodthirstBladeItem)) return;
+            float heal = player.getMaxHealth()
+                    * ru.custom.progression.items.BloodthirstBladeItem.LIFESTEAL_ON_KILL;
+            if (player.getHealth() < player.getMaxHealth()) player.heal(heal);
+        });
+    }
+
+    // ── Жрец «Благодать против нежити» (p_grace_undead): −10% входящего урона ──
+
+    private static void registerUndeadResistance() {
+        ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
+            if (!(entity instanceof ServerPlayer player)) return true;
+            PlayerStats stats = DataManager.getPlayer(player.getUUID());
+            if (stats == null || !stats.isNodeUnlocked("p_grace_undead")) return true;
+
+            net.minecraft.world.entity.Entity src = source.getEntity();
+            if (!(src instanceof LivingEntity le)) return true;
+            if (!le.getType().is(EntityTypeTags.UNDEAD)) return true;
+
+            // Компенсируем 10% урона хилом — без Mixin'а точное снижение amount невозможно.
+            float heal = amount * 0.10f;
+            if (heal > 0f && player.getHealth() < player.getMaxHealth()) {
+                player.heal(heal);
+            }
+            return true;
+        });
+    }
+
     // ── Вспомогательные ───────────────────────────────────────────────────
 
     private static boolean tickCooldownOk(Map<UUID, Long> map, UUID id, long now, long cdTicks) {
@@ -860,6 +1115,21 @@ public final class SkillEventHooks {
     /** Посох снимает все дебаффы с игрока — «Очищение». */
     public static boolean staffHasCleanse(PlayerStats stats) {
         return stats.isNodeUnlocked("p_cleanse");
+    }
+
+    /** Священный гнев: посох также бьёт ближайшего врага на 2 HP + Weakness II. */
+    public static boolean staffHasHolyWrath(PlayerStats stats) {
+        return stats.isNodeUnlocked("p_holy_wrath");
+    }
+
+    /** Жертвенное лечение: посох снимает у кастера 1 HP и лечит союзников р.3 на +2 HP. */
+    public static boolean staffHasMartyrSacrifice(PlayerStats stats) {
+        return stats.isNodeUnlocked("p_mart_sacrifice");
+    }
+
+    /** Снижение КД Дымовой завесы (мс): −10% от ноды «r_ars_smokecd». */
+    public static long smokeCloudCooldownReductionMs(PlayerStats stats) {
+        return stats.isNodeUnlocked("r_ars_smokecd") ? 6_000L : 0L; // 10% от 60 сек
     }
 
     /** Проверка ноды «Всезнание» — видимость HP мобов (клиентский флаг). */

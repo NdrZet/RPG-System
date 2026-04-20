@@ -13,7 +13,9 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
+import ru.custom.progression.api.PlayerStats;
 import ru.custom.progression.skills.SkillEventHooks;
+import ru.custom.progression.storage.DataManager;
 
 /**
  * Дымовая Завеса Следопыта — Blindness II врагам в радиусе 5 блоков на 5 сек.
@@ -21,7 +23,7 @@ import ru.custom.progression.skills.SkillEventHooks;
  */
 public class SmokeCloudItem extends Item {
 
-    private static final long COOLDOWN_MS = 60_000L;
+    private static final long BASE_COOLDOWN_MS = 60_000L;
 
     public SmokeCloudItem(Properties props) {
         super(props);
@@ -32,10 +34,14 @@ public class SmokeCloudItem extends Item {
         if (!(level instanceof ServerLevel sl)) return InteractionResult.PASS;
         if (!(player instanceof ServerPlayer sp)) return InteractionResult.PASS;
 
+        PlayerStats stats = DataManager.getPlayer(sp.getUUID());
+        long cdReduce = stats == null ? 0L : SkillEventHooks.smokeCloudCooldownReductionMs(stats);
+        long cooldown = Math.max(10_000L, BASE_COOLDOWN_MS - cdReduce);
+
         long now = System.currentTimeMillis();
         long elapsed = now - SkillEventHooks.getItemLastUsed(this, sp.getUUID());
-        if (elapsed < COOLDOWN_MS) {
-            long remaining = (COOLDOWN_MS - elapsed) / 1000 + 1;
+        if (elapsed < cooldown) {
+            long remaining = (cooldown - elapsed) / 1000 + 1;
             sp.displayClientMessage(
                     Component.literal("Завеса перезаряжается... ещё " + remaining + " сек.")
                             .withStyle(ChatFormatting.RED), false

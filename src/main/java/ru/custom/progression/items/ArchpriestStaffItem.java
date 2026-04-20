@@ -22,15 +22,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Посох Жреца — лечит 4 HP, КД 30 сек.
- * Ноды: +% лечения, −% КД, «Великое исцеление» (аура союзников), «Очищение».
+ * Посох Архижреца — оружие Жреца T3. Разблокируется нодой {@code p_resurrection}.
+ * Лечит 10 HP + Regen I 10 сек, КД 15 сек. Поддерживает те же ноды, что
+ * {@link HealingStaffItem}.
  */
-public class HealingStaffItem extends Item {
+public class ArchpriestStaffItem extends Item {
 
-    private static final long BASE_COOLDOWN_MS = 30_000L;
-    private static final float BASE_HEAL = 4.0f;
+    private static final long BASE_COOLDOWN_MS = 15_000L;
+    private static final float BASE_HEAL = 10.0f;
 
-    public HealingStaffItem(Properties props) {
+    public ArchpriestStaffItem(Properties props) {
         super(props);
     }
 
@@ -47,14 +48,14 @@ public class HealingStaffItem extends Item {
         boolean holyWrath = stats != null && SkillEventHooks.staffHasHolyWrath(stats);
         boolean martyrSac = stats != null && SkillEventHooks.staffHasMartyrSacrifice(stats);
 
-        long cooldown = Math.max(3_000L, BASE_COOLDOWN_MS - cdReduce);
+        long cooldown = Math.max(2_000L, BASE_COOLDOWN_MS - cdReduce);
         long now = System.currentTimeMillis();
         long elapsed = now - SkillEventHooks.getItemLastUsed(this, sp.getUUID());
 
         if (elapsed < cooldown) {
             long remaining = (cooldown - elapsed) / 1000 + 1;
             sp.displayClientMessage(
-                Component.literal("Посох перезаряжается... ещё " + remaining + " сек.")
+                Component.literal("Посох Архижреца перезаряжается... ещё " + remaining + " сек.")
                          .withStyle(ChatFormatting.RED), false
             );
             return InteractionResult.FAIL;
@@ -62,17 +63,17 @@ public class HealingStaffItem extends Item {
 
         float heal = BASE_HEAL * mult;
         sp.heal(heal);
+        sp.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 200, 0, true, true));
 
-        // «Великое исцеление»: союзники в радиусе 3 лечатся на 50%
         if (great) {
-            AABB box = sp.getBoundingBox().inflate(3.0);
+            AABB box = sp.getBoundingBox().inflate(5.0);
             for (ServerPlayer ally : sl.getEntitiesOfClass(ServerPlayer.class, box)) {
                 if (ally == sp) continue;
-                ally.heal(heal * 0.5f);
+                ally.heal(heal * 0.7f);
+                ally.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 120, 0, true, true));
             }
         }
 
-        // «Очищение»: снимаем все негативные эффекты
         if (cleanse) {
             List<net.minecraft.core.Holder<MobEffect>> toRemove = new ArrayList<>();
             for (MobEffectInstance eff : sp.getActiveEffects()) {
@@ -81,9 +82,8 @@ public class HealingStaffItem extends Item {
             for (var h : toRemove) sp.removeEffect(h);
         }
 
-        // «Священный гнев»: бьём ближайшего враждебного моба в радиусе 6
         if (holyWrath) {
-            AABB box = sp.getBoundingBox().inflate(6.0);
+            AABB box = sp.getBoundingBox().inflate(8.0);
             LivingEntity nearest = null;
             double nearestDistSqr = Double.MAX_VALUE;
             for (LivingEntity le : sl.getEntitiesOfClass(LivingEntity.class, box)) {
@@ -92,19 +92,18 @@ public class HealingStaffItem extends Item {
                 if (d < nearestDistSqr) { nearestDistSqr = d; nearest = le; }
             }
             if (nearest != null) {
-                nearest.hurtServer(sl, sl.damageSources().magic(), 2.0f);
-                nearest.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 100, 1));
+                nearest.hurtServer(sl, sl.damageSources().magic(), 5.0f);
+                nearest.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 160, 2));
             }
         }
 
-        // «Жертвенное лечение»: −1 HP себе → +2 HP союзникам в радиусе 3
         if (martyrSac) {
-            AABB box = sp.getBoundingBox().inflate(3.0);
+            AABB box = sp.getBoundingBox().inflate(4.0);
             boolean anyAlly = false;
             for (ServerPlayer ally : sl.getEntitiesOfClass(ServerPlayer.class, box)) {
                 if (ally == sp) continue;
                 if (ally.getHealth() < ally.getMaxHealth()) {
-                    ally.heal(2.0f);
+                    ally.heal(4.0f);
                     anyAlly = true;
                 }
             }
@@ -115,7 +114,7 @@ public class HealingStaffItem extends Item {
 
         SkillEventHooks.registerItemCooldown(this, sp.getUUID(), now);
         sp.displayClientMessage(
-            Component.literal("✦ Исцеление").withStyle(ChatFormatting.GREEN), false
+            Component.literal("☩ Длань архижреца").withStyle(ChatFormatting.GOLD), false
         );
         return InteractionResult.SUCCESS;
     }
