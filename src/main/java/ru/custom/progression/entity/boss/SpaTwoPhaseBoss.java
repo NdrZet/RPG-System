@@ -8,6 +8,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.level.Level;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
 import ru.custom.progression.entity.SpaBaseEntity;
 
 /**
@@ -42,8 +43,8 @@ public abstract class SpaTwoPhaseBoss extends SpaBaseEntity {
     }
 
     @Override
-    public boolean hurt(DamageSource source, float amount) {
-        if (this.isInvulnerableTo(source) || isInTransition()) {
+    public boolean hurtServer(ServerLevel level, DamageSource source, float amount) {
+        if (this.isInvulnerableTo(level, source) || isInTransition()) {
             return false;
         }
         
@@ -54,7 +55,7 @@ public abstract class SpaTwoPhaseBoss extends SpaBaseEntity {
             this.startPhaseTransition();
             return false; // Отменяем смерть
         }
-        return super.hurt(source, amount);
+        return super.hurtServer(level, source, amount);
     }
     
     protected void startPhaseTransition() {

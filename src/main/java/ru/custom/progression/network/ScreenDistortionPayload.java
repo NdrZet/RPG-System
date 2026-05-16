@@ -9,10 +9,10 @@ import net.minecraft.resources.ResourceLocation;
  * Payload for sending screen distortion effects to the client (e.g., fake health, inverted controls).
  */
 public record ScreenDistortionPayload(int effectType, int durationMs) implements CustomPacketPayload {
-    public static final ResourceLocation ID_LOC = new ResourceLocation("sparpg", "screen_distortion");
+    public static final ResourceLocation ID_LOC = ResourceLocation.fromNamespaceAndPath("sparpg", "screen_distortion");
     public static final CustomPacketPayload.Type<ScreenDistortionPayload> ID = new CustomPacketPayload.Type<>(ID_LOC);
 
-    public static final StreamCodec<FriendlyByteBuf, ScreenDistortionPayload> CODEC = StreamCodec.of(
+    public static final StreamCodec<FriendlyByteBuf, ScreenDistortionPayload> CODEC = CustomPacketPayload.codec(
         ScreenDistortionPayload::write, ScreenDistortionPayload::new
     );
 

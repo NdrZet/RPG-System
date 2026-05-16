@@ -8,6 +8,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.minecraft.server.level.ServerLevel;
 import ru.custom.progression.api.Faction;
 
 /**
@@ -54,16 +55,16 @@ public abstract class SpaBaseEntity extends Monster {
 
     // Игнорирование удушья в стенах (критично для больших моделей и терраформинга)
     @Override
-    public boolean isInvulnerableTo(DamageSource source) {
+    public boolean isInvulnerableTo(ServerLevel level, DamageSource source) {
         if (source.is(DamageTypes.IN_WALL) || source.is(DamageTypes.CRAMMING) || source.is(DamageTypes.CACTUS)) {
             return true;
         }
-        return super.isInvulnerableTo(source);
+        return super.isInvulnerableTo(level, source);
     }
 
     @Override
-    public boolean hurt(DamageSource source, float amount) {
-        if (this.isInvulnerableTo(source)) {
+    public boolean hurtServer(ServerLevel level, DamageSource source, float amount) {
+        if (this.isInvulnerableTo(level, source)) {
             return false;
         }
         
@@ -72,7 +73,7 @@ public abstract class SpaBaseEntity extends Monster {
             return false;
         }
         
-        return super.hurt(source, amount);
+        return super.hurtServer(level, source, amount);
     }
     
     protected float modifyDamageBasedOnFaction(DamageSource source, float amount) {
