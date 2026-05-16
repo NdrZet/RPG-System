@@ -5,7 +5,7 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.monster.HostileEntity;
+import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import ru.custom.progression.api.Faction;
@@ -14,9 +14,9 @@ import ru.custom.progression.api.Faction;
  * Базовый класс для всех существ мода.
  * Отвечает за общие проверки, отключение ванильных уязвимостей и базовые резисты.
  */
-public abstract class SpaBaseEntity extends HostileEntity {
+public abstract class SpaBaseEntity extends Monster {
 
-    protected SpaBaseEntity(EntityType<? extends HostileEntity> type, Level level) {
+    protected SpaBaseEntity(EntityType<? extends Monster> type, Level level) {
         super(type, level);
         this.applyFactionTraits(getFaction());
         this.xpReward = 0; // Кастомная выдача опыта

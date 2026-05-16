@@ -5,7 +5,7 @@ import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.monster.HostileEntity;
+import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.level.Level;
 import net.minecraft.nbt.CompoundTag;
 import ru.custom.progression.entity.SpaBaseEntity;
@@ -22,7 +22,7 @@ public abstract class SpaTwoPhaseBoss extends SpaBaseEntity {
     protected int transitionTimer = 0;
     protected final int maxTransitionTime = 100; // 5 секунд при 20 TPS
 
-    protected SpaTwoPhaseBoss(EntityType<? extends HostileEntity> type, Level level) {
+    protected SpaTwoPhaseBoss(EntityType<? extends Monster> type, Level level) {
         super(type, level);
     }
 

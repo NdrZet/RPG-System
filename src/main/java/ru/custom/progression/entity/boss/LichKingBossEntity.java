@@ -1,13 +1,13 @@
 package ru.custom.progression.entity.boss;
 
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.monster.HostileEntity;
+import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.level.Level;
 import ru.custom.progression.api.Faction;
 
 public class LichKingBossEntity extends SpaTwoPhaseBoss {
 
-    public LichKingBossEntity(EntityType<? extends HostileEntity> type, Level level) {
+    public LichKingBossEntity(EntityType<? extends Monster> type, Level level) {
         super(type, level);
     }
 
