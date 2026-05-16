@@ -170,11 +170,11 @@ public class ProgressionMod implements ModInitializer {
     }
 
     /**
-     * XP за моба = 2 × макс. здоровье, минимум 5, максимум 500.
+     * XP за моба = 2 × макс. здоровье, минимум 5. Лимит снят.
      * Убийство игроков XP не даёт.
      */
     private static int calculateXp(LivingEntity mob) {
         if (mob instanceof Player) return 0;
-        return Math.min(500, Math.max(5, (int)(mob.getMaxHealth() * 2)));
+        return Math.max(5, (int)(mob.getMaxHealth() * 2));
     }
 }
