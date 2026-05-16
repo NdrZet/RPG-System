@@ -18,6 +18,7 @@ public record StatsUpdatePayload(
         int    experience,
         String rank,
         int    skillPoints,
+        int    statPoints,
         String playerClass,
         int    strength,
         int    agility,
@@ -39,6 +40,7 @@ public record StatsUpdatePayload(
         buf.writeVarInt(p.experience());
         buf.writeUtf(p.rank());
         buf.writeVarInt(p.skillPoints());
+        buf.writeVarInt(p.statPoints());
         buf.writeUtf(p.playerClass());
         buf.writeVarInt(p.strength());
         buf.writeVarInt(p.agility());
@@ -53,6 +55,7 @@ public record StatsUpdatePayload(
         int exp   = buf.readVarInt();
         String rank = buf.readUtf();
         int sp = buf.readVarInt();
+        int statp = buf.readVarInt();
         String cls = buf.readUtf();
         int str = buf.readVarInt();
         int agi = buf.readVarInt();
@@ -61,7 +64,7 @@ public record StatsUpdatePayload(
         int nodeCount = buf.readVarInt();
         Set<String> nodes = new HashSet<>();
         for (int i = 0; i < nodeCount; i++) nodes.add(buf.readUtf());
-        return new StatsUpdatePayload(level, exp, rank, sp, cls, str, agi, vit, inti, nodes);
+        return new StatsUpdatePayload(level, exp, rank, sp, statp, cls, str, agi, vit, inti, nodes);
     }
 
     public static StatsUpdatePayload from(PlayerStats stats) {
@@ -70,6 +73,7 @@ public record StatsUpdatePayload(
                 stats.getExperience(),
                 stats.getRank(),
                 stats.getSkillPoints(),
+                stats.getStatPoints(),
                 stats.getPlayerClass(),
                 stats.getStrength(),
                 stats.getAgility(),
@@ -85,6 +89,7 @@ public record StatsUpdatePayload(
         s.setExperience(experience);
         s.setRank(rank);
         s.setSkillPoints(skillPoints);
+        s.setStatPoints(statPoints);
         s.setPlayerClass(playerClass);
         s.setStrength(strength);
         s.setAgility(agility);

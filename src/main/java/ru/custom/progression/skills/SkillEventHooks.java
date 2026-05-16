@@ -28,6 +28,8 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.entity.ai.memory.MemoryModuleType;
+import net.minecraft.world.entity.Mob;
 import ru.custom.progression.api.PlayerStats;
 import ru.custom.progression.storage.DataManager;
 
@@ -269,6 +271,10 @@ public final class SkillEventHooks {
                 saveFromDeath(player, player.getMaxHealth() * 0.3f);
                 player.addEffect(new MobEffectInstance(MobEffects.SPEED, 100, 3));
                 player.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 100, 0));
+                
+                // Сброс агро
+                clearAggro(player);
+                
                 lastTimelessTick.put(player.getUUID(), now);
                 player.sendSystemMessage(
                         Component.literal("✦ Вне времени: время замерло...")
@@ -426,11 +432,29 @@ public final class SkillEventHooks {
             if (stats == null) return;
             if (stats.isNodeUnlocked("r_elusive") && damageTaken > 0) {
                 player.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 20, 0, false, false));
+                
+                // Сброс агро
+                clearAggro(player);
             }
             if (stats.isNodeUnlocked("w_dom_absolute") && damageTaken > 0) {
                 killStreakNoDamage.put(player.getUUID(), 0);
             }
         });
+    }
+
+    private static void clearAggro(ServerPlayer player) {
+        AABB box = player.getBoundingBox().inflate(32.0);
+        for (Mob mob : player.level().getEntitiesOfClass(Mob.class, box)) {
+            if (mob.getTarget() == player) {
+                mob.setTarget(null);
+            }
+            if (mob.getBrain().hasMemoryValue(MemoryModuleType.ATTACK_TARGET)) {
+                LivingEntity target = mob.getBrain().getMemory(MemoryModuleType.ATTACK_TARGET).orElse(null);
+                if (target == player) {
+                    mob.getBrain().eraseMemory(MemoryModuleType.ATTACK_TARGET);
+                }
+            }
+        }
     }
 
     // ── Иммунитеты Жреца (яд/огонь/утопление/Wither) ──────────────────────

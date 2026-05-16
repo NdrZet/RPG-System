@@ -72,7 +72,7 @@ public class StatsScreen extends Screen {
     @Override
     protected void init() {
         PlayerStats stats = ClientStatsCache.get();
-        boolean hp = stats.getSkillPoints() > 0;
+        boolean hp = stats.getStatPoints() > 0;
 
         int contentX = MARGIN + SIDEBAR_W + MARGIN;
         int contentR = this.width - MARGIN;
@@ -170,7 +170,7 @@ public class StatsScreen extends Screen {
         PlayerStats stats = ClientStatsCache.get();
 
         if (ClientStatsCache.consumeReinitFlag()) {
-            boolean hp = stats.getSkillPoints() > 0;
+            boolean hp = stats.getStatPoints() > 0;
             if (btnStr != null) btnStr.active = hp;
             if (btnAgi != null) btnAgi.active = hp;
             if (btnVit != null) btnVit.active = hp;
@@ -223,6 +223,12 @@ public class StatsScreen extends Screen {
         gfx.drawString(this.font, "Очки навыков", sx + 8, ty, COL_TEXT_DIM, false);
         ty += 10;
         gfx.drawString(this.font, String.valueOf(stats.getSkillPoints()), sx + 8, ty, spColor, false);
+
+        ty += 16;
+        int statpColor = stats.getStatPoints() > 0 ? 0xFF00FF7F : COL_TEXT_DIM;
+        gfx.drawString(this.font, "Очки характеристик", sx + 8, ty, COL_TEXT_DIM, false);
+        ty += 10;
+        gfx.drawString(this.font, String.valueOf(stats.getStatPoints()), sx + 8, ty, statpColor, false);
     }
 
     // ── Таб: Характеристики ─────────────────────────────────────────────
@@ -235,7 +241,8 @@ public class StatsScreen extends Screen {
         gfx.drawString(this.font, "ХАРАКТЕРИСТИКИ", cx, top, COL_ACCENT, false);
         gfx.fill(cx, top + 12, cr, top + 13, COL_DIVIDER);
 
-        int xpMax = stats.getLevel() * 100;
+        int currentLevel = stats.getLevel();
+        int xpMax = getRequiredXp(currentLevel);
         int xpY = top + 20;
         gfx.drawString(this.font,
                 "Опыт: " + stats.getExperience() + " / " + xpMax,
@@ -253,6 +260,19 @@ public class StatsScreen extends Screen {
         drawStatRow(gfx, "Ловкость",     "AGI", stats.getAgility(),      cx, rowY + (ROW_H + ROW_GAP) * 1, cr, 0xFF90EE90);
         drawStatRow(gfx, "Выносливость", "VIT", stats.getVitality(),     cx, rowY + (ROW_H + ROW_GAP) * 2, cr, 0xFFFF69B4);
         drawStatRow(gfx, "Интеллект",    "INT", stats.getIntelligence(), cx, rowY + (ROW_H + ROW_GAP) * 3, cr, 0xFF87CEEB);
+    }
+
+    private int getRequiredXp(int currentLevel) {
+        if (currentLevel < 10) return (int) (currentLevel * 100 * 1.0);
+        if (currentLevel < 20) return (int) (currentLevel * 100 * 2.0);
+        if (currentLevel < 30) return (int) (currentLevel * 100 * 4.0);
+        if (currentLevel < 40) return (int) (currentLevel * 100 * 7.0);
+        if (currentLevel < 50) return (int) (currentLevel * 100 * 11.0);
+        if (currentLevel < 60) return (int) (currentLevel * 100 * 16.5);
+        if (currentLevel < 70) return (int) (currentLevel * 100 * 24.0);
+        if (currentLevel < 80) return (int) (currentLevel * 100 * 34.0);
+        if (currentLevel < 90) return (int) (currentLevel * 100 * 46.0);
+        return (int) (currentLevel * 100 * 60.6061);
     }
 
     private void drawStatRow(GuiGraphics gfx, String name, String code, int value,

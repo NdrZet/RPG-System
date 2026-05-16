@@ -35,6 +35,10 @@ public final class ModItems {
     private static final ResourceKey<Item> BLOODTHIRST_BLADE_KEY  = key("bloodthirst_blade");
     private static final ResourceKey<Item> SACRED_STAFF_KEY       = key("sacred_staff");
     private static final ResourceKey<Item> ARCHPRIEST_STAFF_KEY   = key("archpriest_staff");
+    private static final ResourceKey<Item> MARKSMAN_BOW_KEY       = key("marksman_bow");
+    private static final ResourceKey<Item> SHADOW_BOW_KEY         = key("shadow_bow");
+    private static final ResourceKey<Item> LUCK_ARTIFACT_KEY      = key("luck_artifact");
+    private static final ResourceKey<Item> FATE_AMULET_KEY        = key("fate_amulet");
 
     // ── Зарегистрированные предметы ──────────────────────────────────────────
     public static final Item HEALING_STAFF = Registry.register(
@@ -103,6 +107,23 @@ public final class ModItems {
             BuiltInRegistries.ITEM, ARCHPRIEST_STAFF_KEY,
             new ArchpriestStaffItem(new Item.Properties().stacksTo(1).setId(ARCHPRIEST_STAFF_KEY))
     );
+    public static final Item MARKSMAN_BOW = Registry.register(
+            BuiltInRegistries.ITEM, MARKSMAN_BOW_KEY,
+            new MarksmanBowItem(new Item.Properties().stacksTo(1).setId(MARKSMAN_BOW_KEY))
+    );
+    public static final Item SHADOW_BOW = Registry.register(
+            BuiltInRegistries.ITEM, SHADOW_BOW_KEY,
+            new ShadowBowItem(new Item.Properties().stacksTo(1).setId(SHADOW_BOW_KEY))
+    );
+    public static final Item LUCK_ARTIFACT = Registry.register(
+            BuiltInRegistries.ITEM, LUCK_ARTIFACT_KEY,
+            new LuckArtifactItem(new Item.Properties().stacksTo(1).setId(LUCK_ARTIFACT_KEY))
+    );
+    public static final Item FATE_AMULET = Registry.register(
+            BuiltInRegistries.ITEM, FATE_AMULET_KEY,
+            new FateAmuletItem(new Item.Properties().stacksTo(1).setId(FATE_AMULET_KEY))
+    );
+
 
     private ModItems() { }
 
@@ -141,6 +162,10 @@ public final class ModItems {
             case "w_fury_bloodthirst"  -> BLOODTHIRST_BLADE;
             case "p_great_heal"        -> SACRED_STAFF;
             case "p_resurrection"      -> ARCHPRIEST_STAFF;
+            case "r_eagle"             -> MARKSMAN_BOW;
+            case "r_shadow"            -> SHADOW_BOW;
+            case "m_golden_hands"      -> LUCK_ARTIFACT;
+            case "m_fate"              -> FATE_AMULET;
             default                   -> null;
         };
         if (item == null) return false;

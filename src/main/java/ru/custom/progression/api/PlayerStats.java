@@ -17,6 +17,7 @@ public class PlayerStats {
     private int    experience  = 0;
     private String rank        = "Новичок";
     private int    skillPoints = 0;
+    private int    statPoints  = 0; // Очки характеристик, выдаваемые за тиры
 
     // ── Класс персонажа ─────────────────────────────────────────────────────
     /** Стартовый класс — «Странник». Меняется кнопкой «ВЫБРАТЬ ПУТЬ». */
@@ -45,20 +46,44 @@ public class PlayerStats {
 
     /**
      * Добавляет опыт и повышает уровень, если накоплено достаточно.
-     * Каждое повышение уровня даёт 2 очка навыков и пересчитывает ранг.
+     * Каждое повышение уровня даёт 1 очко навыков и пересчитывает ранг.
      *
      * @param amount количество добавляемого опыта
      */
     public void addExperience(int amount) {
         this.experience += amount;
-        int xpNeeded = this.level * 100;
+        int xpNeeded = getRequiredXp(this.level);
         while (this.experience >= xpNeeded) {
             this.experience -= xpNeeded;
             this.level++;
-            this.skillPoints += 2;
+            this.skillPoints += 1;
             this.rank = calculateRank();
-            xpNeeded = this.level * 100;
+            
+            // Начисляем очки статов за достижение новых тиров
+            if (this.level == 20) this.statPoints += 10;
+            else if (this.level == 40) this.statPoints += 15;
+            else if (this.level == 70) this.statPoints += 20;
+            else if (this.level == 100) this.statPoints += 30;
+
+            xpNeeded = getRequiredXp(this.level);
         }
+    }
+
+    /**
+     * Возвращает требуемый опыт для перехода на следующий уровень.
+     * Реализует ступенчато-экспоненциальный рост.
+     */
+    private int getRequiredXp(int currentLevel) {
+        if (currentLevel < 10) return (int) (currentLevel * 100 * 1.0);
+        if (currentLevel < 20) return (int) (currentLevel * 100 * 2.0);
+        if (currentLevel < 30) return (int) (currentLevel * 100 * 4.0);
+        if (currentLevel < 40) return (int) (currentLevel * 100 * 7.0);
+        if (currentLevel < 50) return (int) (currentLevel * 100 * 11.0);
+        if (currentLevel < 60) return (int) (currentLevel * 100 * 16.5);
+        if (currentLevel < 70) return (int) (currentLevel * 100 * 24.0);
+        if (currentLevel < 80) return (int) (currentLevel * 100 * 34.0);
+        if (currentLevel < 90) return (int) (currentLevel * 100 * 46.0);
+        return (int) (currentLevel * 100 * 60.6061);
     }
 
     /**
@@ -77,13 +102,13 @@ public class PlayerStats {
     }
 
     /**
-     * Тратит одно очко навыков на повышение указанного стата.
+     * Тратит одно очко статов на повышение указанного стата.
      *
      * @param statName название стата: "strength", "agility", "vitality", "intelligence"
      * @return {@code true}, если очко потрачено успешно
      */
     public boolean upgradeStat(String statName) {
-        if (this.skillPoints <= 0) return false;
+        if (this.statPoints <= 0) return false;
         switch (statName) {
             case "strength"     -> { if (this.strength     >= 50) return false; this.strength++; }
             case "agility"      -> { if (this.agility      >= 50) return false; this.agility++; }
@@ -91,8 +116,12 @@ public class PlayerStats {
             case "intelligence" -> { if (this.intelligence >= 50) return false; this.intelligence++; }
             default -> { return false; }
         }
-        this.skillPoints--;
+        this.statPoints--;
         return true;
+    }
+
+    public void addStatPoints(int amount) {
+        this.statPoints += amount;
     }
 
     /**
@@ -104,6 +133,7 @@ public class PlayerStats {
         this.experience  = 0;
         this.rank        = "Новичок";
         this.skillPoints = 0;
+        this.statPoints  = 0;
         this.playerClass = "Странник";
         this.strength     = 1;
         this.agility      = 1;
@@ -179,6 +209,9 @@ public class PlayerStats {
     public int    getSkillPoints()       { return skillPoints; }
     public void   setSkillPoints(int v)  { this.skillPoints = v; }
 
+    public int    getStatPoints()        { return statPoints; }
+    public void   setStatPoints(int v)   { this.statPoints = v; }
+
     public String getPlayerClass()           { return playerClass; }
     public void   setPlayerClass(String v)   { this.playerClass = v; }
 
@@ -197,8 +230,8 @@ public class PlayerStats {
     @Override
     public String toString() {
         return String.format(
-            "PlayerStats{level=%d, exp=%d, rank='%s', class='%s', sp=%d, STR=%d, AGI=%d, VIT=%d, INT=%d}",
-            level, experience, rank, playerClass, skillPoints,
+            "PlayerStats{level=%d, exp=%d, rank='%s', class='%s', sp=%d, statp=%d, STR=%d, AGI=%d, VIT=%d, INT=%d}",
+            level, experience, rank, playerClass, skillPoints, statPoints,
             strength, agility, vitality, intelligence
         );
     }

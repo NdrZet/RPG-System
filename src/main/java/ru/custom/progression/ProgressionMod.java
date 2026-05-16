@@ -110,10 +110,10 @@ public class ProgressionMod implements ModInitializer {
             stats.addExperience(xp);
             int levelAfter  = stats.getLevel();
 
-            // «Мудрец»: каждые 10 уровней +2 очка
+            // «Мудрец»: каждые 10 уровней +2 очка (теперь stat points)
             if (stats.isNodeUnlocked("m_sage") && levelAfter > levelBefore) {
                 for (int l = levelBefore + 1; l <= levelAfter; l++) {
-                    if (l % 10 == 0) stats.setSkillPoints(stats.getSkillPoints() + 2);
+                    if (l % 10 == 0) stats.addStatPoints(2);
                 }
             }
 
@@ -125,7 +125,7 @@ public class ProgressionMod implements ModInitializer {
                              .withStyle(ChatFormatting.GOLD)
                         .append(Component.literal("Уровень " + levelAfter)
                              .withStyle(ChatFormatting.YELLOW))
-                        .append(Component.literal(" | +2 очка навыков")
+                        .append(Component.literal(" | +1 очко навыков")
                              .withStyle(ChatFormatting.GREEN))
                 );
                 LOGGER.info("[Progression] {} достиг {} уровня",

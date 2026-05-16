@@ -37,7 +37,7 @@ public final class StatEffects {
      */
     public static void apply(ServerPlayer player, PlayerStats stats) {
         applyStatBonuses(player, stats);
-        applyClassBonuses(player, stats.getPlayerClass());
+        applyClassBonuses(player, stats);
         SkillEffects.apply(player, stats.getPlayerClass(), stats.getUnlockedNodes());
     }
 
@@ -68,45 +68,58 @@ public final class StatEffects {
     // ── Пассивные бонусы класса ───────────────────────────────────────────────
 
     /**
-     * Классовые бонусы (дополнительно к бонусам от статов):
-     * <ul>
-     *   <li><b>Воин</b>    — +4 урона, +10 HP (5 сердец)</li>
-     *   <li><b>Маг</b>     — +10 удачи, +0.05 скорости</li>
-     *   <li><b>Следопыт</b>— +0.10 скорости, +1.0 скорости атаки (50% быстрее)</li>
-     *   <li><b>Жрец</b>    — +8 HP (4 сердца), +5 удачи</li>
-     *   <li><b>Странник</b>— без бонусов</li>
-     * </ul>
+     * Классовые бонусы с учетом Тира.
      */
-    private static void applyClassBonuses(ServerPlayer player, String playerClass) {
+    private static void applyClassBonuses(ServerPlayer player, PlayerStats stats) {
         // Сбрасываем все прежние классовые бонусы
         removeClassModifiers(player);
 
+        String playerClass = stats.getPlayerClass();
+        int lvl = stats.getLevel();
+        int tier = lvl >= 100 ? 5 : lvl >= 70 ? 4 : lvl >= 40 ? 3 : lvl >= 20 ? 2 : 1;
+
         switch (playerClass) {
             case "Воин" -> {
-                setModifier(player, Attributes.ATTACK_DAMAGE, CLS_DMG_ID,
-                        4.0, AttributeModifier.Operation.ADD_VALUE);
-                setModifier(player, Attributes.MAX_HEALTH, CLS_HP_ID,
-                        10.0, AttributeModifier.Operation.ADD_VALUE);
+                double dmg = switch (tier) {
+                    case 5 -> 28.0; case 4 -> 20.0; case 3 -> 14.0; case 2 -> 8.0; default -> 4.0;
+                };
+                double hp = switch (tier) {
+                    case 5 -> 70.0; case 4 -> 50.0; case 3 -> 35.0; case 2 -> 20.0; default -> 10.0;
+                };
+                setModifier(player, Attributes.ATTACK_DAMAGE, CLS_DMG_ID, dmg, AttributeModifier.Operation.ADD_VALUE);
+                setModifier(player, Attributes.MAX_HEALTH, CLS_HP_ID, hp, AttributeModifier.Operation.ADD_VALUE);
             }
             case "Маг" -> {
-                setModifier(player, Attributes.LUCK, CLS_LUCK_ID,
-                        10.0, AttributeModifier.Operation.ADD_VALUE);
-                setModifier(player, Attributes.MOVEMENT_SPEED, CLS_SPD_ID,
-                        0.05, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+                double luck = switch (tier) {
+                    case 5 -> 75.0; case 4 -> 50.0; case 3 -> 35.0; case 2 -> 20.0; default -> 10.0;
+                };
+                double spd = switch (tier) {
+                    case 5 -> 0.25; case 4 -> 0.20; case 3 -> 0.15; case 2 -> 0.10; default -> 0.05;
+                };
+                setModifier(player, Attributes.LUCK, CLS_LUCK_ID, luck, AttributeModifier.Operation.ADD_VALUE);
+                setModifier(player, Attributes.MOVEMENT_SPEED, CLS_SPD_ID, spd, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
             }
             case "Следопыт" -> {
-                setModifier(player, Attributes.MOVEMENT_SPEED, CLS_SPD_ID,
-                        0.10, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
-                setModifier(player, Attributes.ATTACK_SPEED, CLS_ASPD_ID,
-                        1.0, AttributeModifier.Operation.ADD_VALUE);
+                double spd = switch (tier) {
+                    case 5 -> 0.60; case 4 -> 0.45; case 3 -> 0.32; case 2 -> 0.20; default -> 0.10;
+                };
+                double aspd = switch (tier) {
+                    case 5 -> 5.0; case 4 -> 4.0; case 3 -> 3.0; case 2 -> 2.0; default -> 1.0;
+                };
+                setModifier(player, Attributes.MOVEMENT_SPEED, CLS_SPD_ID, spd, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+                setModifier(player, Attributes.ATTACK_SPEED, CLS_ASPD_ID, aspd, AttributeModifier.Operation.ADD_VALUE);
             }
             case "Жрец" -> {
-                setModifier(player, Attributes.MAX_HEALTH, CLS_HP_ID,
-                        8.0, AttributeModifier.Operation.ADD_VALUE);
-                setModifier(player, Attributes.LUCK, CLS_LUCK_ID,
-                        5.0, AttributeModifier.Operation.ADD_VALUE);
+                double hp = switch (tier) {
+                    case 5 -> 60.0; case 4 -> 40.0; case 3 -> 28.0; case 2 -> 16.0; default -> 8.0;
+                };
+                double luck = switch (tier) {
+                    case 5 -> 40.0; case 4 -> 30.0; case 3 -> 20.0; case 2 -> 12.0; default -> 5.0;
+                };
+                setModifier(player, Attributes.MAX_HEALTH, CLS_HP_ID, hp, AttributeModifier.Operation.ADD_VALUE);
+                setModifier(player, Attributes.LUCK, CLS_LUCK_ID, luck, AttributeModifier.Operation.ADD_VALUE);
             }
-            // "Странник" и неизвестные — без бонусов (модификаторы уже сброшены выше)
+            // "Странник" и неизвестные — без бонусов
         }
     }
 
