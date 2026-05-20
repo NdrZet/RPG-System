@@ -1,5 +1,7 @@
 package ru.custom.progression.entity;
 
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageTypes;
@@ -8,7 +10,6 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
-import net.minecraft.server.level.ServerLevel;
 import ru.custom.progression.api.Faction;
 
 /**
@@ -52,29 +53,14 @@ public abstract class SpaBaseEntity extends Monster {
     }
 
     @Override
-    public boolean isInvulnerableTo(ServerLevel level, DamageSource source) {
+    public boolean isInvulnerableTo(DamageSource source) {
         if (source.is(DamageTypes.IN_WALL) || source.is(DamageTypes.CRAMMING) || source.is(DamageTypes.CACTUS)) {
             return true;
         }
-        return super.isInvulnerableTo(level, source);
+        return super.isInvulnerableTo(source);
     }
 
-    @Override
-    public boolean hurtServer(ServerLevel level, DamageSource source, float amount) {
-        if (this.isInvulnerableTo(level, source)) {
-            return false;
-        }
-        
-        amount = modifyDamageBasedOnFaction(source, amount);
-        
-        if (amount <= 0) {
-            return false;
-        }
-        
-        return super.hurtServer(level, source, amount);
-    }
-
-    protected float modifyDamageBasedOnFaction(DamageSource source, float amount) {
+    public float modifyDamage(DamageSource source, float amount) {
         Faction faction = getFaction();
 
         if (faction == Faction.CONSTRUCT) {
