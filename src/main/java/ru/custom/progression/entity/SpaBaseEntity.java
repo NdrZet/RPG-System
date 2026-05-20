@@ -1,5 +1,7 @@
 package ru.custom.progression.entity;
 
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageTypes;
@@ -8,89 +10,80 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
-import net.minecraft.server.level.ServerLevel;
 import ru.custom.progression.api.Faction;
 
 /**
- * Базовый класс для всех существ мода.
- * Отвечает за общие проверки, отключение ванильных уязвимостей и базовые резисты.
+ * Base class for all mod's creatures.
+ * Handles common checks, disables vanilla vulnerabilities, and provides base resistances.
  */
 public abstract class SpaBaseEntity extends Monster {
 
     protected SpaBaseEntity(EntityType<? extends Monster> type, Level level) {
         super(type, level);
         this.applyFactionTraits(getFaction());
-        this.xpReward = 0; // Кастомная выдача опыта
+        this.xpReward = 0; // Custom XP handling
     }
 
     protected abstract Faction getFaction();
 
     protected void applyFactionTraits(Faction faction) {
-        if (faction == Faction.UNDEAD) {
-            // Базовые трейты для нежити, если нужно
-        }
+        // Apply base traits for the faction if needed
     }
 
-    // --- Защита от ванильных абьюзов ---
+    // --- Vanilla Exploit Protection ---
 
     @Override
-    public boolean canBeCollidedWith() { 
-        return true; 
-    }
-    
-    @Override
-    public boolean isPushable() { 
-        return false; 
-    }
-    
-    @Override
-    protected void doPush(Entity entity) { 
-        // Отключаем толкание
+    public boolean canBeCollidedWith() {
+        return true;
     }
 
     @Override
-    public boolean canCollideWith(Entity entity) { 
-        return false; // Босс не толкается другими мобами
+    public boolean isPushable() {
+        return false;
     }
 
-    // Игнорирование удушья в стенах (критично для больших моделей и терраформинга)
     @Override
-    public boolean isInvulnerableTo(ServerLevel level, DamageSource source) {
+    protected void doPush(Entity entity) {
+        // Disable pushing
+    }
+
+    @Override
+    public boolean canCollideWith(Entity entity) {
+        return false; // Bosses are not pushed by other mobs
+    }
+
+    @Override
+    public boolean isInvulnerableTo(DamageSource source) {
         if (source.is(DamageTypes.IN_WALL) || source.is(DamageTypes.CRAMMING) || source.is(DamageTypes.CACTUS)) {
             return true;
         }
-        return super.isInvulnerableTo(level, source);
+        return super.isInvulnerableTo(source);
     }
 
+    /**
+     * This is the new correct method to override for custom damage modification in modern versions.
+     * The `hurt` method is now final in superclasses.
+     */
     @Override
-    public boolean hurtServer(ServerLevel level, DamageSource source, float amount) {
-        if (this.isInvulnerableTo(level, source)) {
-            return false;
-        }
-        
-        amount = modifyDamageBasedOnFaction(source, amount);
-        if (amount <= 0) {
-            return false;
-        }
-        
-        return super.hurtServer(level, source, amount);
+    public float getDamageAfterMagicAbsorb(DamageSource source, float amount) {
+        float absorbedAmount = super.getDamageAfterMagicAbsorb(source, amount);
+        return modifyDamageBasedOnFaction(source, absorbedAmount);
     }
-    
+
     protected float modifyDamageBasedOnFaction(DamageSource source, float amount) {
         Faction faction = getFaction();
-        
+
         if (faction == Faction.CONSTRUCT) {
-            // Конструкты получают только 50% урона от стрел и не-кирок
             if (source.is(DamageTypeTags.IS_PROJECTILE) || source.getEntity() instanceof Player) {
-                // В будущем можно добавить проверку на кирку (PickaxeItem)
+                // TODO: Check if the player is holding a PickaxeItem
                 return amount * 0.5f;
             }
         } else if (faction == Faction.MUTANT) {
             if (source.is(DamageTypes.IN_FIRE) || source.is(DamageTypes.ON_FIRE)) {
-                return amount * 1.5f; // Уязвимость к огню
+                return amount * 1.5f; // Vulnerable to fire
             }
         }
-        
+
         return amount;
     }
 }

@@ -1,5 +1,6 @@
 package ru.custom.progression.entity.boss;
 
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -7,22 +8,19 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.level.Level;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.storage.ValueInput;
-import net.minecraft.world.level.storage.ValueOutput;
 import ru.custom.progression.entity.SpaBaseEntity;
 
 /**
- * Базовый класс для боссов с двумя фазами.
- * Управляет переходом между фазами, кат-сценами и неуязвимостью.
+ * Base class for two-phase bosses.
+ * Manages phase transitions, cutscenes, and invulnerability.
  */
 public abstract class SpaTwoPhaseBoss extends SpaBaseEntity {
-    
+
     public static final EntityDataAccessor<Integer> PHASE = SynchedEntityData.defineId(SpaTwoPhaseBoss.class, EntityDataSerializers.INT);
     public static final EntityDataAccessor<Boolean> IN_TRANSITION = SynchedEntityData.defineId(SpaTwoPhaseBoss.class, EntityDataSerializers.BOOLEAN);
-    
+
     protected int transitionTimer = 0;
-    protected final int maxTransitionTime = 100; // 5 секунд при 20 TPS
+    protected final int maxTransitionTime = 100; // 5 seconds at 20 TPS
 
     protected SpaTwoPhaseBoss(EntityType<? extends Monster> type, Level level) {
         super(type, level);
@@ -34,44 +32,48 @@ public abstract class SpaTwoPhaseBoss extends SpaBaseEntity {
         builder.define(PHASE, 1);
         builder.define(IN_TRANSITION, false);
     }
-    
-    public int getPhase() { 
-        return this.entityData.get(PHASE); 
-    }
-    
-    public boolean isInTransition() { 
-        return this.entityData.get(IN_TRANSITION); 
+
+    public int getPhase() {
+        return this.entityData.get(PHASE);
     }
 
+    public boolean isInTransition() {
+        return this.entityData.get(IN_TRANSITION);
+    }
+
+    // Intercept lethal damage to activate phase 2
     @Override
-    public boolean hurtServer(ServerLevel level, DamageSource source, float amount) {
-        if (this.isInvulnerableTo(level, source) || isInTransition()) {
-            return false;
+    public float getDamageAfterMagicAbsorb(DamageSource source, float amount) {
+        if (this.isInvulnerableTo(source) || isInTransition()) {
+            return 0.0f; // Return 0 damage instead of returning false
+        }
+
+        float calculatedDamage = super.getDamageAfterMagicAbsorb(source, amount);
+        float currentHealth = this.getHealth();
+
+        // If the damage is lethal and we are in phase 1
+        if (currentHealth - calculatedDamage <= 0.0F && getPhase() == 1) {
+            this.setHealth(1.0F); // Leave 1 HP
+            this.startPhaseTransition();
+            return 0.0f; // Cancel the killing damage
         }
         
-        float currentHealth = this.getHealth();
-        // Перехват смертельного урона для активации 2-й фазы
-        if (currentHealth - amount <= 0.0F && getPhase() == 1) {
-            this.setHealth(1.0F); // Оставляем 1 ХП
-            this.startPhaseTransition();
-            return false; // Отменяем смерть
-        }
-        return super.hurtServer(level, source, amount);
+        return calculatedDamage;
     }
-    
+
     protected void startPhaseTransition() {
         this.entityData.set(IN_TRANSITION, true);
         this.removeAllEffects();
-        this.setInvulnerable(true); // Временно неуязвим
-        
-        // Остановка ИИ
-        this.goalSelector.removeAllGoals(goal -> true); 
+        this.setInvulnerable(true); // Temporarily invulnerable
+
+        // Stop AI
+        this.goalSelector.removeAllGoals(goal -> true);
         this.targetSelector.removeAllGoals(goal -> true);
         this.getNavigation().stop();
-        this.setDeltaMovement(0, 0, 0); 
-        
+        this.setDeltaMovement(0, 0, 0);
+
         this.transitionTimer = 0;
-        
+
         this.onPhaseTransitionStart();
     }
 
@@ -91,17 +93,17 @@ public abstract class SpaTwoPhaseBoss extends SpaBaseEntity {
         this.entityData.set(PHASE, 2);
         this.entityData.set(IN_TRANSITION, false);
         this.setInvulnerable(false);
-        this.setHealth(this.getMaxHealth()); // Восстановление ХП
-        
+        this.setHealth(this.getMaxHealth()); // Restore HP
+
         this.registerPhaseTwoGoals();
         this.applyPhaseTwoModifiers();
-        this.onPhaseTwoStart(); 
+        this.onPhaseTwoStart();
     }
-    
-    // --- Сохранение состояния ---
-    
+
+    // --- State Saving ---
+
     @Override
-    public void addAdditionalSaveData(ValueOutput compound) {
+    public void addAdditionalSaveData(CompoundTag compound) {
         super.addAdditionalSaveData(compound);
         compound.putInt("CurrentPhase", this.getPhase());
         compound.putBoolean("InTransition", this.isInTransition());
@@ -109,21 +111,27 @@ public abstract class SpaTwoPhaseBoss extends SpaBaseEntity {
     }
 
     @Override
-    public void readAdditionalSaveData(ValueInput compound) {
+    public void readAdditionalSaveData(CompoundTag compound) {
         super.readAdditionalSaveData(compound);
-        this.entityData.set(PHASE, compound.getInt("CurrentPhase").orElse(1));
-        this.entityData.set(IN_TRANSITION, compound.getBoolean("InTransition").orElse(false));
-        this.transitionTimer = compound.getInt("TransitionTimer").orElse(0);
-        
-        // Восстановление ИИ после загрузки мира
+        if (compound.contains("CurrentPhase")) {
+            this.entityData.set(PHASE, compound.getInt("CurrentPhase"));
+        }
+        if (compound.contains("InTransition")) {
+            this.entityData.set(IN_TRANSITION, compound.getBoolean("InTransition"));
+        }
+        if (compound.contains("TransitionTimer")) {
+            this.transitionTimer = compound.getInt("TransitionTimer");
+        }
+
+        // Restore AI after world load
         if (this.getPhase() == 2 && !this.isInTransition()) {
             this.registerPhaseTwoGoals();
             this.applyPhaseTwoModifiers();
         }
     }
-    
-    // --- Хуки для конкретных боссов ---
-    
+
+    // --- Hooks for specific bosses ---
+
     protected abstract void onPhaseTransitionStart();
     protected abstract void onPhaseTransitionTick(int tick);
     protected abstract void onPhaseTwoStart();

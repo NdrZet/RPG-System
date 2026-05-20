@@ -36,7 +36,7 @@ public class TargetLowestArmorGoal extends NearestAttackableTargetGoal<Player> {
         players.sort(Comparator.comparingDouble(p -> p.getAttributeValue(Attributes.ARMOR)));
 
         if (!players.isEmpty()) {
-            this.targetMob = players.get(0);
+            this.target = players.get(0);
         }
     }
 }

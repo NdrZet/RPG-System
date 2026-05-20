@@ -7,7 +7,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.entity.SpawnReason;
+import net.minecraft.world.entity.EntitySpawnReason;
 
 import java.util.List;
 
@@ -46,7 +46,7 @@ public class SkillUtils {
             double x = Math.cos(angle);
             double z = Math.sin(angle);
             
-            Entity proj = projType.create(level, null, null, source.blockPosition(), SpawnReason.MOB_SUMMONED, false, false);
+            Entity proj = projType.create(level, null, null, source.blockPosition(), EntitySpawnReason.MOB_SUMMONED, false, false);
             if (proj instanceof Projectile projectile) {
                 projectile.setPos(source.getX(), source.getY() + source.getBbHeight() / 2, source.getZ());
                 projectile.shoot(x, 0, z, (float)speed, 0.0f); 
