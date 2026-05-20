@@ -4,8 +4,10 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.entity.SpawnReason;
 
 import java.util.List;
 
@@ -44,16 +46,11 @@ public class SkillUtils {
             double x = Math.cos(angle);
             double z = Math.sin(angle);
             
-            Entity proj = projType.create(level);
-            if (proj != null) {
-                proj.setPos(source.getX(), source.getY() + source.getBbHeight() / 2, source.getZ());
-                // Dir X, Dir Y, Dir Z, speed, accuracy/divergence
-                // shoot method depends on the specific projectile class (usually Projectile or ThrowableProjectile)
-                // Using generic logic here. Requires actual projectile implementation cast if needed.
-                // Example for Projectile:
-                // ((Projectile) proj).shoot(x, 0, z, (float)speed, 0.0f); 
-                
-                level.addFreshEntity(proj);
+            Entity proj = projType.create(level, null, null, source.blockPosition(), SpawnReason.MOB_SUMMONED, false, false);
+            if (proj instanceof Projectile projectile) {
+                projectile.setPos(source.getX(), source.getY() + source.getBbHeight() / 2, source.getZ());
+                projectile.shoot(x, 0, z, (float)speed, 0.0f); 
+                level.addFreshEntity(projectile);
             }
         }
     }

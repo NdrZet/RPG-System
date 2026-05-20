@@ -7,8 +7,9 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.level.Level;
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import ru.custom.progression.entity.SpaBaseEntity;
 
 /**
@@ -100,7 +101,7 @@ public abstract class SpaTwoPhaseBoss extends SpaBaseEntity {
     // --- Сохранение состояния ---
     
     @Override
-    public void addAdditionalSaveData(CompoundTag compound) {
+    public void addAdditionalSaveData(ValueOutput compound) {
         super.addAdditionalSaveData(compound);
         compound.putInt("CurrentPhase", this.getPhase());
         compound.putBoolean("InTransition", this.isInTransition());
@@ -108,17 +109,11 @@ public abstract class SpaTwoPhaseBoss extends SpaBaseEntity {
     }
 
     @Override
-    public void readAdditionalSaveData(CompoundTag compound) {
+    public void readAdditionalSaveData(ValueInput compound) {
         super.readAdditionalSaveData(compound);
-        if (compound.contains("CurrentPhase")) {
-            this.entityData.set(PHASE, compound.getInt("CurrentPhase"));
-        }
-        if (compound.contains("InTransition")) {
-            this.entityData.set(IN_TRANSITION, compound.getBoolean("InTransition"));
-        }
-        if (compound.contains("TransitionTimer")) {
-            this.transitionTimer = compound.getInt("TransitionTimer");
-        }
+        this.entityData.set(PHASE, compound.getInt("CurrentPhase").orElse(1));
+        this.entityData.set(IN_TRANSITION, compound.getBoolean("InTransition").orElse(false));
+        this.transitionTimer = compound.getInt("TransitionTimer").orElse(0);
         
         // Восстановление ИИ после загрузки мира
         if (this.getPhase() == 2 && !this.isInTransition()) {
