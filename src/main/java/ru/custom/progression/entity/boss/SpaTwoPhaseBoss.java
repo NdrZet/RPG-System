@@ -4,6 +4,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.monster.Monster;
@@ -41,24 +42,22 @@ public abstract class SpaTwoPhaseBoss extends SpaBaseEntity {
         return this.entityData.get(IN_TRANSITION);
     }
 
-    // Intercept lethal damage to activate phase 2
     @Override
-    public float getDamageAfterMagicAbsorb(DamageSource source, float amount) {
-        if (this.isInvulnerableTo(source) || isInTransition()) {
-            return 0.0f; // Return 0 damage instead of returning false
+    public boolean hurtServer(ServerLevel level, DamageSource source, float amount) {
+        if (this.isInvulnerableTo(level, source) || isInTransition()) {
+            return false;
         }
 
-        float calculatedDamage = super.getDamageAfterMagicAbsorb(source, amount);
         float currentHealth = this.getHealth();
 
         // If the damage is lethal and we are in phase 1
-        if (currentHealth - calculatedDamage <= 0.0F && getPhase() == 1) {
+        if (currentHealth - amount <= 0.0F && getPhase() == 1) {
             this.setHealth(1.0F); // Leave 1 HP
             this.startPhaseTransition();
-            return 0.0f; // Cancel the killing damage
+            return false; // Cancel the killing damage
         }
         
-        return calculatedDamage;
+        return super.hurtServer(level, source, amount);
     }
 
     protected void startPhaseTransition() {

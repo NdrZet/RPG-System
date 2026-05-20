@@ -1,7 +1,5 @@
 package ru.custom.progression.entity;
 
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageTypes;
@@ -10,6 +8,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.minecraft.server.level.ServerLevel;
 import ru.custom.progression.api.Faction;
 
 /**
@@ -53,21 +52,26 @@ public abstract class SpaBaseEntity extends Monster {
     }
 
     @Override
-    public boolean isInvulnerableTo(DamageSource source) {
+    public boolean isInvulnerableTo(ServerLevel level, DamageSource source) {
         if (source.is(DamageTypes.IN_WALL) || source.is(DamageTypes.CRAMMING) || source.is(DamageTypes.CACTUS)) {
             return true;
         }
-        return super.isInvulnerableTo(source);
+        return super.isInvulnerableTo(level, source);
     }
 
-    /**
-     * This is the new correct method to override for custom damage modification in modern versions.
-     * The `hurt` method is now final in superclasses.
-     */
     @Override
-    public float getDamageAfterMagicAbsorb(DamageSource source, float amount) {
-        float absorbedAmount = super.getDamageAfterMagicAbsorb(source, amount);
-        return modifyDamageBasedOnFaction(source, absorbedAmount);
+    public boolean hurtServer(ServerLevel level, DamageSource source, float amount) {
+        if (this.isInvulnerableTo(level, source)) {
+            return false;
+        }
+        
+        amount = modifyDamageBasedOnFaction(source, amount);
+        
+        if (amount <= 0) {
+            return false;
+        }
+        
+        return super.hurtServer(level, source, amount);
     }
 
     protected float modifyDamageBasedOnFaction(DamageSource source, float amount) {

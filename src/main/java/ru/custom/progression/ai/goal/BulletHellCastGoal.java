@@ -3,7 +3,7 @@ package ru.custom.progression.ai.goal;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.goal.Goal;
 import ru.custom.progression.entity.boss.SpaTwoPhaseBoss;
-import ru.custom.progression.skills.SkillUtils;
+// import ru.custom.progression.skills.SkillUtils;
 
 import java.util.EnumSet;
 
