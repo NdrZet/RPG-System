@@ -88,6 +88,9 @@ public final class SkillEventHooks {
     /** КД автотелепорта «Мерцание» при получении урона. */
     private static final Map<UUID, Long> lastAutoBlinkTick = new HashMap<>();
 
+    /** КД невидимости от Лука Тени после убийства стрелой. */
+    private static final Map<UUID, Long> lastShadowBowKillTick = new HashMap<>();
+
     /** Последний момент, когда игрок «только что» начал эффект Luck (для «Великий алхимик»). */
     private static final Map<UUID, Long> lastGrandAlchemistGrant = new HashMap<>();
 
@@ -116,6 +119,8 @@ public final class SkillEventHooks {
         registerPriestGraceAura();
         registerUndeadResistance();
         registerTieredMeleeWeapons();
+        registerTieredBows();
+        registerMageArtifacts();
     }
 
     // ── Модификация исходящего урона (крит / Берсерк / Охотник / Охотник в тени) ──────────
