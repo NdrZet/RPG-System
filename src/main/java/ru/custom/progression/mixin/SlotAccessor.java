@@ -30,31 +30,31 @@ public interface SlotAccessor {
 
     /**
      * Устанавливает горизонтальную позицию слота.
-     * Mojang: {@code x} → intermediary: {@code field_7873}
+     * Mojang mapping name: {@code x}
      */
     @Mutable
-    @Accessor(value = "field_7873", remap = false)
+    @Accessor("x")
     void setX(int x);
 
     /**
      * Устанавливает вертикальную позицию слота.
-     * Mojang: {@code y} → intermediary: {@code field_7872}
+     * Mojang mapping name: {@code y}
      */
     @Mutable
-    @Accessor(value = "field_7872", remap = false)
+    @Accessor("y")
     void setY(int y);
 
     /**
      * Читает горизонтальную позицию (для проверки повторного применения).
-     * Mojang: {@code x} → intermediary: {@code field_7873}
+     * Mojang mapping name: {@code x}
      */
-    @Accessor(value = "field_7873", remap = false)
+    @Accessor("x")
     int getX();
 
     /**
      * Читает вертикальную позицию.
-     * Mojang: {@code y} → intermediary: {@code field_7872}
+     * Mojang mapping name: {@code y}
      */
-    @Accessor(value = "field_7872", remap = false)
+    @Accessor("y")
     int getY();
 }

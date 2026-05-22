@@ -6,7 +6,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import ru.custom.progression.network.ClientNetworkHandler;
+import ru.custom.progression.network.C2SNetworkHandler;
 
 /**
  * Экран выбора класса персонажа в стиле Sodium.
@@ -129,7 +129,7 @@ public class ClassSelectionScreen extends Screen {
     }
 
     private void selectClass(String className) {
-        ClientNetworkHandler.sendChooseClass(className);
+        C2SNetworkHandler.sendChooseClass(className);
         this.onClose();
     }
 

@@ -11,10 +11,11 @@ import net.minecraft.client.KeyMapping;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.custom.progression.api.ClientStatsCache;
+import ru.custom.progression.client.network.ClientNetworkHandler;
 import ru.custom.progression.gui.OmniscienceHud;
 import ru.custom.progression.gui.PlayerStatusHud;
 import ru.custom.progression.gui.StatsScreen;
-import ru.custom.progression.network.ClientNetworkHandler;
+import ru.custom.progression.network.C2SNetworkHandler;
 
 /**
  * Точка входа клиентской части мода прогрессии (ClientModInitializer).
@@ -37,7 +38,8 @@ public class ProgressionModClient implements ClientModInitializer {
     public void onInitializeClient() {
         LOGGER.info("[Progression] Инициализация клиентской части мода прогрессии...");
 
-        ClientNetworkHandler.register();
+        ClientNetworkHandler.registerReceivers();
+        C2SNetworkHandler.register();
         OmniscienceHud.register();
         PlayerStatusHud.register();
 

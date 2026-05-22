@@ -35,6 +35,7 @@ public final class ModItems {
     private static final ResourceKey<Item> BLOODTHIRST_BLADE_KEY  = key("bloodthirst_blade");
     private static final ResourceKey<Item> SACRED_STAFF_KEY       = key("sacred_staff");
     private static final ResourceKey<Item> ARCHPRIEST_STAFF_KEY   = key("archpriest_staff");
+    private static final ResourceKey<Item> HUNTER_BOW_KEY         = key("hunter_bow");
     private static final ResourceKey<Item> MARKSMAN_BOW_KEY       = key("marksman_bow");
     private static final ResourceKey<Item> SHADOW_BOW_KEY         = key("shadow_bow");
     private static final ResourceKey<Item> LUCK_ARTIFACT_KEY      = key("luck_artifact");
@@ -107,6 +108,10 @@ public final class ModItems {
             BuiltInRegistries.ITEM, ARCHPRIEST_STAFF_KEY,
             new ArchpriestStaffItem(new Item.Properties().stacksTo(1).setId(ARCHPRIEST_STAFF_KEY))
     );
+    public static final Item HUNTER_BOW = Registry.register(
+            BuiltInRegistries.ITEM, HUNTER_BOW_KEY,
+            new HunterBowItem(new Item.Properties().stacksTo(1).setId(HUNTER_BOW_KEY))
+    );
     public static final Item MARKSMAN_BOW = Registry.register(
             BuiltInRegistries.ITEM, MARKSMAN_BOW_KEY,
             new MarksmanBowItem(new Item.Properties().stacksTo(1).setId(MARKSMAN_BOW_KEY))
@@ -135,7 +140,7 @@ public final class ModItems {
             case "Жрец"     -> HEALING_STAFF;
             case "Воин"     -> WAR_CRY;
             case "Маг"      -> LUCK_SCROLL;
-            case "Следопыт" -> RANGER_TRAP;
+            case "Следопыт" -> HUNTER_BOW;
             default         -> null;
         };
         if (item == null) return;

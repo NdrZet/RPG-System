@@ -9,7 +9,7 @@ import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import ru.custom.progression.api.ClientStatsCache;
 import ru.custom.progression.api.PlayerStats;
-import ru.custom.progression.network.ClientNetworkHandler;
+import ru.custom.progression.network.C2SNetworkHandler;
 import ru.custom.progression.skills.SkillNode;
 import ru.custom.progression.skills.SkillTree;
 import ru.custom.progression.skills.SkillTreeDefinitions;
@@ -113,7 +113,7 @@ public class StatsScreen extends Screen {
             btnResetSkills = Button.builder(
                     Component.literal("Сбросить навыки"),
                     b -> {
-                        ClientNetworkHandler.sendResetSkills();
+                        C2SNetworkHandler.sendResetSkills();
                         b.active = false;
                     }
             ).bounds(contentR - 140, this.height - MARGIN - 20, 140, 16).build();
@@ -151,7 +151,7 @@ public class StatsScreen extends Screen {
 
     private Button addPlusButton(int x, int y, String stat, boolean active) {
         Button b = Button.builder(Component.literal("+"),
-                btn -> ClientNetworkHandler.sendStatUpgrade(stat))
+                btn -> C2SNetworkHandler.sendStatUpgrade(stat))
                 .bounds(x, y, 16, 16).build();
         b.active = active;
         this.addRenderableWidget(b);
@@ -515,7 +515,7 @@ public class StatsScreen extends Screen {
                         if (isHovered(mx, my, nx, ny, n.type())) {
                             NodeState s = stateOf(n, unlocked, tree);
                             if (s == NodeState.AVAILABLE) {
-                                ClientNetworkHandler.sendUnlockNode(n.id());
+                                C2SNetworkHandler.sendUnlockNode(n.id());
                             }
                             return true;
                         }

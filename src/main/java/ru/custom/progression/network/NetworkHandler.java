@@ -45,6 +45,12 @@ public final class NetworkHandler {
                 StatsUpdatePayload.STREAM_CODEC
         );
 
+        // S2C — эффекты искажения экрана (фейковое здоровье, инвертированные управление, глухота)
+        PayloadTypeRegistry.playS2C().register(
+                ScreenDistortionPayload.ID,
+                ScreenDistortionPayload.CODEC
+        );
+
         // C2S — повышение стата
         PayloadTypeRegistry.playC2S().register(
                 StatUpgradePayload.TYPE,
