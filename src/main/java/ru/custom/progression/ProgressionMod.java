@@ -37,6 +37,7 @@ public class ProgressionMod implements ModInitializer {
         registerRespawnEffects();
         registerMobKillXp();
         registerPriestRegen();
+        registerAutoSave();
         SkillEventHooks.register();
 
         LOGGER.info("[Progression] Серверная часть мода прогрессии готова.");
@@ -166,6 +167,15 @@ public class ProgressionMod implements ModInitializer {
                     player.heal(heal);
                 }
             }
+        });
+    }
+
+    // ── Автосохранение каждые 5 минут (6000 тиков) ───────────────────────────
+
+    private static void registerAutoSave() {
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            if (server.getTickCount() % 6000 != 0) return;
+            DataManager.saveAll();
         });
     }
 

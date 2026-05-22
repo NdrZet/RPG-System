@@ -1017,6 +1017,103 @@ public final class SkillEventHooks {
         });
     }
 
+    // ── Тирированные луки Следопыта: бонус-урон + крит + невидимость ───────
+
+    private static void registerTieredBows() {
+        // Бонус урона и крит от луков
+        ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, baseDamageTaken, damageTaken, blocked) -> {
+            if (REENTRY.get()) return;
+            if (blocked || damageTaken <= 0) return;
+            if (!(source.getEntity() instanceof ServerPlayer attacker)) return;
+            if (attacker == entity) return;
+            // Только стрелы
+            if (!(source.getDirectEntity() instanceof net.minecraft.world.entity.projectile.arrow.AbstractArrow)) return;
+
+            net.minecraft.world.item.Item held = attacker.getMainHandItem().getItem();
+            float bonus = 0f;
+            boolean crit = false;
+
+            if (held instanceof ru.custom.progression.items.HunterBowItem) {
+                bonus += damageTaken * ru.custom.progression.items.HunterBowItem.BONUS_DAMAGE;
+            } else if (held instanceof ru.custom.progression.items.MarksmanBowItem) {
+                bonus += damageTaken * ru.custom.progression.items.MarksmanBowItem.BONUS_DAMAGE;
+                if (RNG.nextFloat() < ru.custom.progression.items.MarksmanBowItem.CRIT_CHANCE) {
+                    crit = true;
+                    bonus += damageTaken; // двойной урон = +100%
+                }
+            } else if (held instanceof ru.custom.progression.items.ShadowBowItem) {
+                bonus += damageTaken * ru.custom.progression.items.ShadowBowItem.BONUS_DAMAGE;
+                if (RNG.nextFloat() < ru.custom.progression.items.ShadowBowItem.CRIT_CHANCE) {
+                    crit = true;
+                    bonus += damageTaken; // двойной урон = +100%
+                }
+            }
+
+            if (bonus <= 0f && !crit) return;
+            if (!(attacker.level() instanceof ServerLevel sl)) return;
+
+            if (crit) {
+                attacker.sendSystemMessage(
+                        Component.literal("✦ Критический выстрел!").withStyle(ChatFormatting.YELLOW),
+                        true
+                );
+            }
+
+            REENTRY.set(true);
+            try {
+                entity.hurtServer(sl, source, bonus);
+            } finally {
+                REENTRY.set(false);
+            }
+        });
+
+        // Shadow Bow: невидимость после убийства стрелой
+        ServerEntityCombatEvents.AFTER_KILLED_OTHER_ENTITY.register((world, killer, killed, source) -> {
+            if (!(killer instanceof ServerPlayer player)) return;
+            if (!(source.getDirectEntity() instanceof net.minecraft.world.entity.projectile.arrow.AbstractArrow)) return;
+
+            net.minecraft.world.item.Item held = player.getMainHandItem().getItem();
+            if (!(held instanceof ru.custom.progression.items.ShadowBowItem)) return;
+
+            long now = player.level().getGameTime();
+            if (!tickCooldownOk(lastShadowBowKillTick, player.getUUID(), now,
+                    ru.custom.progression.items.ShadowBowItem.INVIS_COOLDOWN_TICKS)) return;
+
+            player.addEffect(new MobEffectInstance(MobEffects.INVISIBILITY,
+                    ru.custom.progression.items.ShadowBowItem.INVIS_DURATION_TICKS, 0, true, false));
+            lastShadowBowKillTick.put(player.getUUID(), now);
+            player.sendSystemMessage(
+                    Component.literal("☾ Лук Тени: вы скрываетесь в тени...").withStyle(ChatFormatting.DARK_PURPLE)
+            );
+        });
+    }
+
+    // ── Артефакты Мага: Luck-бонус + уклонение ────────────────────────────
+
+    private static void registerMageArtifacts() {
+        // Уклонение от урона (Fate Amulet)
+        ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
+            if (!(entity instanceof ServerPlayer player)) return true;
+            if (amount <= 0) return true;
+            // Уклонение работает только при активном эффекте Luck
+            if (!player.hasEffect(MobEffects.LUCK)) return true;
+
+            net.minecraft.world.item.Item offhand = player.getOffhandItem().getItem();
+            net.minecraft.world.item.Item mainhand = player.getMainHandItem().getItem();
+            boolean hasFate = (offhand instanceof ru.custom.progression.items.FateAmuletItem)
+                    || (mainhand instanceof ru.custom.progression.items.FateAmuletItem);
+
+            if (!hasFate) return true;
+            if (RNG.nextFloat() >= ru.custom.progression.items.FateAmuletItem.DODGE_CHANCE) return true;
+
+            player.sendSystemMessage(
+                    Component.literal("✦ Судьба уклоняется от удара!").withStyle(ChatFormatting.AQUA),
+                    true
+            );
+            return false; // полностью отменяем урон
+        });
+    }
+
     // ── Жрец «Благодать против нежити» (p_grace_undead): −10% входящего урона ──
 
     private static void registerUndeadResistance() {

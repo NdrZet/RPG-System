@@ -145,6 +145,20 @@ public final class DataManager {
         cache.remove(uuid);
     }
 
+    /**
+     * Сохраняет данные всех игроков, находящихся в кэше.
+     * Используется для автосохранения по таймеру.
+     */
+    public static void saveAll() {
+        if (cache.isEmpty()) return;
+        int count = 0;
+        for (UUID uuid : cache.keySet()) {
+            savePlayer(uuid);
+            count++;
+        }
+        LOGGER.info("[Progression] Автосохранение: {} игрок(ов)", count);
+    }
+
     // ────────────────────────────────────────────────────────────────────────
     // Вспомогательные методы
     // ────────────────────────────────────────────────────────────────────────

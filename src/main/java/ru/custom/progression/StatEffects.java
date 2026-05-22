@@ -29,6 +29,9 @@ public final class StatEffects {
     private static final Identifier CLS_LUCK_ID = Identifier.fromNamespaceAndPath("progression", "class_luck");
     private static final Identifier CLS_ASPD_ID = Identifier.fromNamespaceAndPath("progression", "class_attack_speed");
 
+    // ── Бонусы от артефактов Мага ─────────────────────────────────────────────
+    private static final Identifier ART_LUCK_ID = Identifier.fromNamespaceAndPath("progression", "artifact_luck");
+
     private StatEffects() { }
 
     /**
@@ -38,6 +41,7 @@ public final class StatEffects {
     public static void apply(ServerPlayer player, PlayerStats stats) {
         applyStatBonuses(player, stats);
         applyClassBonuses(player, stats);
+        applyArtifactBonuses(player);
         SkillEffects.apply(player, stats.getPlayerClass(), stats.getUnlockedNodes());
     }
 
@@ -120,6 +124,33 @@ public final class StatEffects {
                 setModifier(player, Attributes.LUCK, CLS_LUCK_ID, luck, AttributeModifier.Operation.ADD_VALUE);
             }
             // "Странник" и неизвестные — без бонусов
+        }
+    }
+
+    // ── Бонусы от тирированных артефактов Мага ──────────────────────────────
+
+    private static void applyArtifactBonuses(ServerPlayer player) {
+        int luckBonus = 0;
+
+        net.minecraft.world.item.Item main = player.getMainHandItem().getItem();
+        net.minecraft.world.item.Item off  = player.getOffhandItem().getItem();
+
+        if (main instanceof ru.custom.progression.items.LuckArtifactItem
+                || off instanceof ru.custom.progression.items.LuckArtifactItem) {
+            luckBonus += ru.custom.progression.items.LuckArtifactItem.LUCK_BONUS;
+        }
+        if (main instanceof ru.custom.progression.items.FateAmuletItem
+                || off instanceof ru.custom.progression.items.FateAmuletItem) {
+            luckBonus += ru.custom.progression.items.FateAmuletItem.LUCK_BONUS;
+        }
+
+        AttributeInstance luckAttr = player.getAttribute(Attributes.LUCK);
+        if (luckAttr != null) {
+            luckAttr.removeModifier(ART_LUCK_ID);
+            if (luckBonus > 0) {
+                luckAttr.addPermanentModifier(
+                        new AttributeModifier(ART_LUCK_ID, luckBonus, AttributeModifier.Operation.ADD_VALUE));
+            }
         }
     }
 
