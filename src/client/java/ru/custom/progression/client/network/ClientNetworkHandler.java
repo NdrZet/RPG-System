@@ -22,7 +22,7 @@ public class ClientNetworkHandler {
                         ClientStatsCache.invertTimerMs = duration;
                     }
                     case 2 -> { // DEAFNESS
-                        context.client().getSoundManager().stopAll();
+                        context.client().getSoundManager().stop();
                         // Custom sound logic can go here
                     }
                 }

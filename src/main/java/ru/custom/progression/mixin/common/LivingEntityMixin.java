@@ -1,5 +1,6 @@
 package ru.custom.progression.mixin.common;
 
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Mixin;
@@ -14,10 +15,10 @@ import ru.custom.progression.entity.boss.SpaTwoPhaseBoss;
 public class LivingEntityMixin {
 
     @Inject(method = "hurt", at = @At("HEAD"), cancellable = true)
-    private void onHurt(DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
+    private void onHurt(ServerLevel level, DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
         LivingEntity entity = (LivingEntity) (Object) this;
         if (entity instanceof SpaBaseEntity spaEntity) {
-            if (spaEntity.isInvulnerableTo(source)) {
+            if (spaEntity.isInvulnerableTo(level, source)) {
                 cir.setReturnValue(false);
                 return;
             }

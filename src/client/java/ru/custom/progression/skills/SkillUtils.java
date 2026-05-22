@@ -2,12 +2,12 @@ package ru.custom.progression.skills;
 
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.entity.MobSpawnType;
 
 import java.util.List;
 
@@ -46,8 +46,7 @@ public class SkillUtils {
             double x = Math.cos(angle);
             double z = Math.sin(angle);
             
-            // For 1.21.1, EntityType.create(Level, MobSpawnType) is the correct signature
-            Entity proj = projType.create(level, MobSpawnType.MOB_SUMMONED);
+            Entity proj = projType.create(level, EntitySpawnReason.MOB_SUMMONED);
             if (proj instanceof Projectile projectile) {
                 projectile.setPos(source.getX(), source.getY() + source.getBbHeight() / 2, source.getZ());
                 projectile.shoot(x, 0, z, (float)speed, 0.0f); 

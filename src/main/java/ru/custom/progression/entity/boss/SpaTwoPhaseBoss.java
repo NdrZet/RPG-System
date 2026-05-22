@@ -1,6 +1,5 @@
 package ru.custom.progression.entity.boss;
 
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
@@ -8,6 +7,8 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 import ru.custom.progression.entity.SpaBaseEntity;
 
 /**
@@ -83,25 +84,19 @@ public abstract class SpaTwoPhaseBoss extends SpaBaseEntity {
     // --- State Saving ---
 
     @Override
-    public void addAdditionalSaveData(CompoundTag compound) {
-        super.addAdditionalSaveData(compound);
-        compound.putInt("CurrentPhase", this.getPhase());
-        compound.putBoolean("InTransition", this.isInTransition());
-        compound.putInt("TransitionTimer", this.transitionTimer);
+    protected void addAdditionalSaveData(ValueOutput output) {
+        super.addAdditionalSaveData(output);
+        output.putInt("CurrentPhase", this.getPhase());
+        output.putBoolean("InTransition", this.isInTransition());
+        output.putInt("TransitionTimer", this.transitionTimer);
     }
 
     @Override
-    public void readAdditionalSaveData(CompoundTag compound) {
-        super.readAdditionalSaveData(compound);
-        if (compound.contains("CurrentPhase")) {
-            this.entityData.set(PHASE, compound.getInt("CurrentPhase"));
-        }
-        if (compound.contains("InTransition")) {
-            this.entityData.set(IN_TRANSITION, compound.getBoolean("InTransition"));
-        }
-        if (compound.contains("TransitionTimer")) {
-            this.transitionTimer = compound.getInt("TransitionTimer");
-        }
+    protected void readAdditionalSaveData(ValueInput input) {
+        super.readAdditionalSaveData(input);
+        this.entityData.set(PHASE, input.getIntOr("CurrentPhase", 1));
+        this.entityData.set(IN_TRANSITION, input.getBooleanOr("InTransition", false));
+        this.transitionTimer = input.getIntOr("TransitionTimer", 0);
 
         // Restore AI after world load
         if (this.getPhase() == 2 && !this.isInTransition()) {

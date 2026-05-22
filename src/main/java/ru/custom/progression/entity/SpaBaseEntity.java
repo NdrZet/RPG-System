@@ -1,6 +1,5 @@
 package ru.custom.progression.entity;
 
-import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.damagesource.DamageSource;
@@ -33,11 +32,6 @@ public abstract class SpaBaseEntity extends Monster {
     // --- Vanilla Exploit Protection ---
 
     @Override
-    public boolean canBeCollidedWith() {
-        return true;
-    }
-
-    @Override
     public boolean isPushable() {
         return false;
     }
@@ -53,11 +47,11 @@ public abstract class SpaBaseEntity extends Monster {
     }
 
     @Override
-    public boolean isInvulnerableTo(DamageSource source) {
+    public boolean isInvulnerableTo(ServerLevel level, DamageSource source) {
         if (source.is(DamageTypes.IN_WALL) || source.is(DamageTypes.CRAMMING) || source.is(DamageTypes.CACTUS)) {
             return true;
         }
-        return super.isInvulnerableTo(source);
+        return super.isInvulnerableTo(level, source);
     }
 
     public float modifyDamage(DamageSource source, float amount) {

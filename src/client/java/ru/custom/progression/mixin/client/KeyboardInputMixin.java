@@ -1,6 +1,7 @@
 package ru.custom.progression.mixin.client;
 
-import net.minecraft.client.input.KeyboardInput;
+import net.minecraft.client.player.KeyboardInput;
+import net.minecraft.world.entity.player.Input;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -11,24 +12,20 @@ import ru.custom.progression.api.ClientStatsCache;
 public class KeyboardInputMixin {
 
     @Inject(method = "tick", at = @At("RETURN"))
-    private void invertControls(boolean slowDown, float f, CallbackInfo ci) {
+    private void invertControls(CallbackInfo ci) {
         if (ClientStatsCache.controlsInverted) {
-            KeyboardInput input = (KeyboardInput) (Object) this;
-            
-            // Invert physical impulses
-            // Note: In modern versions, fields might be private. If this fails, we'll need an accessor mixin.
-            // For now, assuming direct access works for demonstration.
-            // input.movementForward = -input.movementForward;
-            // input.movementSideways = -input.movementSideways;
-            
-            // Invert logical flags for animations
-            boolean tempUp = input.pressingForward;
-            input.pressingForward = input.pressingBack;
-            input.pressingBack = tempUp;
-            
-            boolean tempLeft = input.pressingLeft;
-            input.pressingLeft = input.pressingRight;
-            input.pressingRight = tempLeft;
+            KeyboardInput self = (KeyboardInput) (Object) this;
+            Input old = self.keyPresses;
+            // Swap forward/backward and left/right
+            self.keyPresses = new Input(
+                old.backward(),   // forward  <- backward
+                old.forward(),    // backward <- forward
+                old.right(),      // left     <- right
+                old.left(),       // right    <- left
+                old.jump(),
+                old.shift(),
+                old.sprint()
+            );
         }
     }
 }

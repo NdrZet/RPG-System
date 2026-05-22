@@ -25,6 +25,12 @@ public final class ClientStatsCache {
      */
     private static boolean needsGuiReinit = false;
 
+    // Screen distortion effect fields
+    public static boolean fakeHealthEnabled = false;
+    public static long fakeHealthTimerMs = 0L;
+    public static boolean controlsInverted = false;
+    public static long invertTimerMs = 0L;
+
     private ClientStatsCache() { }
 
     // ────────────────────────────────────────────────────────────────────────
@@ -72,5 +78,9 @@ public final class ClientStatsCache {
     public static void reset() {
         cachedStats = new PlayerStats();
         needsGuiReinit = false;
+        fakeHealthEnabled = false;
+        fakeHealthTimerMs = 0L;
+        controlsInverted = false;
+        invertTimerMs = 0L;
     }
 }
